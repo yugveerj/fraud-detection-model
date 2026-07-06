@@ -1,0 +1,84 @@
+name: Drift monitoring (replayed)
+
+# Replays one holdout slice per run as a simulated week, publishes Evidently + PSI to
+# GitHub Pages /monitoring/, and opens a GitHub Issue on a breach (SPEC Section 6).
+# Daily cadence to accrue history faster (the stream freezes when exhausted). Every
+# page is labelled a replayed simulation on a static public dataset.
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      reset:
+        description: "restart the replay stream"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # publish to gh-pages
+  issues: write # open breach issues
+
+concurrency:
+  group: monitoring
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore existing /monitoring state from gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: _pages
+        continue-on-error: true # gh-pages may not exist on the first run
+
+      - name: Seed working site from published state
+        run: |
+          mkdir -p site
+          [ -d _pages/monitoring ] && cp -r _pages/monitoring site/monitoring || true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+
+      - name: Replay the next week
+        run: |
+          uv sync --group models --group monitoring
+          RESET=""
+          [ "${{ github.event.inputs.reset }}" = "true" ] && RESET="--reset"
+          uv run python -m monitoring.replay_week --source synthetic --out site/monitoring $RESET
+
+      - name: Publish to gh-pages /monitoring/ (preserves the demo)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site/monitoring
+          destination_dir: monitoring
+          keep_files: true
+
+      - name: Open a GitHub Issue on breach
+        if: hashFiles('site/monitoring/breach.json') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const b = JSON.parse(fs.readFileSync('site/monitoring/breach.json', 'utf8'));
+            const title = `Drift breach — simulated week ${String(b.week).padStart(2, '0')}`;
+            const body = [
+              '**Replayed drift monitoring detected a breach** (static public dataset — not production).',
+              '',
+              ...b.breaches.map((x) => `- ${x}`),
+              '',
+              `Report: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              'Published: the /monitoring/ index on GitHub Pages.',
+            ].join('\n');
+            try {
+              await github.rest.issues.createLabel({ owner, repo, name: 'drift', color: 'b60205' });
+            } catch (e) { /* exists */ }
+            await github.rest.issues.create({ owner, repo, title, body, labels: ['drift'] });

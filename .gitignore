@@ -29,6 +29,9 @@ mlflow.db-*
 # The demo's data snapshot lives at web/presets.json (committed).
 artifacts/serving/
 
+# Monitoring site output is published to gh-pages by the cron, not committed here.
+site/
+
 # --- Python ---
 __pycache__/
 *.py[cod]

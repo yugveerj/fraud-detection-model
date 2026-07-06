@@ -3,6 +3,23 @@
 Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 
+## D-008 — Phase E monitoring: honest drift signal on a small fixture
+The replayed monitoring must detect the drift injected in D-006 without drowning in
+small-sample noise (synthetic holdout is only ~1250 rows → ~125/week):
+- **Monitor dense features only** (<30% missing). Sparse block-NaN V/id features gave
+  PSI up to 3.8 from NaN-fraction swings at small N — noise, not drift. Restricting to
+  dense features surfaces the real signal (amount, C2, score distribution).
+- **Exclude causal aggregates (`ent_*`)** from drift PSI: expanding-window counts /
+  recency grow *structurally* over time (accumulating history), so their PSI reflects
+  the design, not drift. They dominated breaches until excluded.
+- **Min-sample guards:** PSI returns 0 below 30 non-null; value-capture breach requires
+  ≥4 frauds in the batch (tiny batches make capture wildly noisy — an honest limitation
+  of the fixture; real holdout has thousands/week).
+- **Evidently drift** parsed from `DriftedColumnsCount.share ≥ drift_share`; Evidently
+  HTML pruned to the latest 3 weeks (~4MB each) to bound gh-pages size (~14MB total).
+- **Breach → Issue** via `breach.json`; forced-breach test (`--inject-drift`) verified
+  (PSI 11 on the shifted feature). Daily cadence; stream freezes when exhausted.
+
 ## D-007 — Phase D serving choices
 - **Live SHAP in Lambda (not the precompute-only fallback).** XGBoost `TreeExplainer`
   is cheap to build/query, so `/score` computes top-5 SHAP live; the explainer is
