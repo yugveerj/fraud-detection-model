@@ -46,8 +46,22 @@ terraform apply                                 # 3. Lambda + API + alarms
 terraform output api_endpoint
 ```
 
-Then set the repo variables/secrets the workflows use: `AWS_DEPLOY_ROLE_ARN`
-(= `terraform output deploy_role_arn`), `AWS_REGION`, `API_BASE`, `DEMO_URL`.
+**Division of labour.** `terraform apply` (provisioning) is **owner-run locally with
+admin creds** — never CI, never the agent. The `deploy.yml` workflow only builds/pushes
+the image and runs `aws lambda update-function-code` + publishes the demo, which is all
+the scoped OIDC deploy role can do (no `terraform apply`, no shared state on CI).
+
+After the local apply, set the repo secrets/variables the workflows use (from
+`terraform output`):
+
+| kind | name | value |
+| --- | --- | --- |
+| secret | `AWS_DEPLOY_ROLE_ARN` | `deploy_role_arn` |
+| var | `AWS_REGION` | `us-west-2` |
+| var | `ECR_REPOSITORY_URL` | `ecr_repository_url` |
+| var | `LAMBDA_FUNCTION_NAME` | `lambda_function_name` |
+| var | `API_BASE` | `api_endpoint` |
+| var | `DEMO_URL` | your GitHub Pages URL (for the uptime check) |
 
 ## Prerequisites the owner sets up once
 - Enable **Receive Billing Alerts** in the Billing console (required for the billing

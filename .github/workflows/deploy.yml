@@ -1,8 +1,21 @@
-name: Deploy scoring API + demo
+name: Deploy scoring image + demo
 
-# Owner-triggered only. The `production` environment should have a required-reviewer
-# protection rule so the first public deploy is gated (SPEC Section 5 deploy gate).
-# The agent never runs this; it authors it. Apply happens here via GitHub OIDC.
+# Owner-triggered only, gated on the `production` environment (add a required reviewer
+# there to enforce the deploy gate, SPEC Section 5).
+#
+# Division of labour (matches the least-privilege OIDC role and the live-AWS boundary):
+#   * The OWNER provisions/updates infrastructure with `terraform apply` LOCALLY
+#     (admin creds), per infra/README.md, and sets the repo vars/secrets below.
+#   * This workflow only builds+pushes the image and updates the Lambda CODE + the
+#     demo — exactly what the scoped deploy role (ECR push + lambda:UpdateFunctionCode)
+#     can do. It never runs `terraform apply` (no admin perms, no shared state on CI).
+#
+# Repo config (set after the owner's local `terraform apply`):
+#   secret AWS_DEPLOY_ROLE_ARN   = terraform output deploy_role_arn
+#   var    AWS_REGION            = us-west-2
+#   var    ECR_REPOSITORY_URL    = terraform output ecr_repository_url
+#   var    LAMBDA_FUNCTION_NAME  = terraform output lambda_function_name
+#   var    API_BASE             = terraform output api_endpoint
 on:
   workflow_dispatch:
     inputs:
@@ -23,7 +36,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production # add a required reviewer here to enforce the deploy gate
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -44,20 +57,11 @@ jobs:
           uv sync --group models
           uv run python -m serving.artifact --source ${{ github.event.inputs.data_source }}
 
-      - uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform init
-        working-directory: infra
-        run: terraform init -input=false
-
-      - name: Create ECR repository first (image must exist before the Lambda)
-        working-directory: infra
-        run: terraform apply -input=false -auto-approve -target=aws_ecr_repository.this
-
       - name: Build, tag, push image
         id: image
+        env:
+          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
         run: |
-          ECR_URL=$(terraform -chdir=infra output -raw ecr_repository_url)
           TAG="sha-${GITHUB_SHA::12}"
           aws ecr get-login-password --region "${{ vars.AWS_REGION || 'us-west-2' }}" \
             | docker login --username AWS --password-stdin "${ECR_URL%/*}"
@@ -66,24 +70,19 @@ jobs:
           docker push "$ECR_URL:latest"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Terraform apply (full stack)
-        working-directory: infra
-        run: terraform apply -input=false -auto-approve -var="image_tag=${{ steps.image.outputs.tag }}"
-
-      - name: Point the Lambda at the new image
+      - name: Update the Lambda to the new image
+        env:
+          FN: ${{ vars.LAMBDA_FUNCTION_NAME }}
+          ECR_URL: ${{ vars.ECR_REPOSITORY_URL }}
         run: |
-          FN=$(terraform -chdir=infra output -raw lambda_function_name)
-          ECR_URL=$(terraform -chdir=infra output -raw ecr_repository_url)
           aws lambda update-function-code --function-name "$FN" \
             --image-uri "$ECR_URL:${{ steps.image.outputs.tag }}" >/dev/null
           aws lambda wait function-updated --function-name "$FN"
 
-      - name: Wire the API URL into the demo + publish to Pages
+      - name: Wire the API URL into the demo
         run: |
-          API=$(terraform -chdir=infra output -raw api_endpoint)
-          echo "API endpoint: $API"
           cp artifacts/serving/presets.json web/presets.json
-          sed -i "s#__FRAUD_API_BASE__#$API#g" web/config.js
+          sed -i "s#__FRAUD_API_BASE__#${{ vars.API_BASE }}#g" web/config.js
 
       - name: Publish demo to gh-pages (preserves /monitoring/)
         uses: peaceiris/actions-gh-pages@v4
@@ -94,5 +93,4 @@ jobs:
 
       - name: Smoke-test the live endpoint
         run: |
-          API=$(terraform -chdir=infra output -raw api_endpoint)
-          curl -fsS "$API/healthz" | tee /dev/stderr | grep -q '"status": *"ok"'
+          curl -fsS "${{ vars.API_BASE }}/healthz" | tee /dev/stderr | grep -q '"status": *"ok"'

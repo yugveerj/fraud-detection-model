@@ -127,3 +127,22 @@ def test_unknown_route_and_method(bundle, explainer, monkeypatch):
 def test_score_request_rejects_bad_amount():
     with pytest.raises(ValueError):
         ScoreRequest(TransactionDT=1, TransactionAmt=0)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        {"TransactionDT": 1, "TransactionAmt": 50, "V1": "abc"},  # string in numeric col
+        {"TransactionDT": 1, "TransactionAmt": 50, "C1": [1, 2, 3]},  # array in numeric col
+        {"TransactionDT": 1, "TransactionAmt": 1e308},  # non-finite after transforms
+    ],
+)
+def test_hostile_but_valid_json_returns_400_not_5xx(wired_handler, hostile):
+    """extra='allow' fields with hostile types must be 400, never an unguarded 5xx."""
+    event = {
+        "requestContext": {"http": {"method": "POST", "path": "/score"}},
+        "body": json.dumps(hostile),
+    }
+    r = wired_handler.handler(event)
+    assert r["statusCode"] == 400

@@ -99,7 +99,14 @@ def score_endpoint(event: dict) -> dict:
         return _response(400, {"error": "validation failed", "detail": json.loads(exc.json())})
 
     bundle, explainer = _load()
-    scored = score_mod.score(bundle, explainer, request.model_dump(exclude_none=True))
+    try:
+        scored = score_mod.score(bundle, explainer, request.model_dump(exclude_none=True))
+    except Exception as exc:  # noqa: BLE001 - any featurization/model error is bad input
+        # extra="allow" lets arbitrary IEEE-CIS fields through; a hostile type (e.g.
+        # a string in a numeric column) must be a 400, not an uncontrolled 5xx that
+        # also trips the Lambda-error alarm.
+        print(f"score error: {type(exc).__name__}: {exc}")  # -> CloudWatch logs
+        return _response(400, {"error": "could not score transaction — check field types"})
     response = ScoreResponse(
         fraud_probability=scored["fraud_probability"],
         decision=scored["decision"],

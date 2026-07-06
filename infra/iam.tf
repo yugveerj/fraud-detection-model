@@ -81,17 +81,14 @@ data "aws_iam_policy_document" "deploy" {
     sid = "LambdaDeploy"
     actions = [
       "lambda:UpdateFunctionCode",
-      "lambda:UpdateFunctionConfiguration",
       "lambda:GetFunction",
       "lambda:PublishVersion",
     ]
     resources = [aws_lambda_function.this.arn]
   }
-  statement {
-    sid       = "TerraformState"
-    actions   = ["apigateway:GET", "cloudwatch:DescribeAlarms", "logs:DescribeLogGroups"]
-    resources = ["*"]
-  }
+  # NB: this role deliberately CANNOT run `terraform apply` — infra provisioning is
+  # owner-run locally with admin creds (infra/README.md). CI only pushes the image
+  # and updates the Lambda code, which is all the statements above grant.
 }
 
 resource "aws_iam_role_policy" "deploy" {
