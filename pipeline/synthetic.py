@@ -67,7 +67,7 @@ def make_synthetic(
 
     # --- Amount: heavy-tailed, cents preserved; mean drifts upward over time
     #     (covariate drift the PSI/monitoring layer detects).
-    amt = np.round(np.exp(rng.normal(4.0 + 0.35 * time_frac, 1.0)) + rng.random(n), 2)
+    amt = np.round(np.exp(rng.normal(4.0 + 0.2 * time_frac, 1.0)) + rng.random(n), 2)
 
     tx = pd.DataFrame(
         {
@@ -144,6 +144,16 @@ def make_synthetic(
     # --- Fraud label driven by a latent signal (deterministic threshold). ----
     tx[schema.TARGET] = _make_labels(rng, tx, has_id)
 
+    # Fraud targets larger amounts (realistic, and makes review economically
+    # worthwhile: fraud value caught must exceed the review cost of the alerts).
+    # Amount becomes a stable, predictive signal — the model learns "high amount ->
+    # fraud" — while the drifting signal above supplies the leakage/monitoring story.
+    fraud_mask = tx[schema.TARGET].to_numpy() == 1
+    uplift = rng.lognormal(mean=1.2, sigma=0.4, size=int(fraud_mask.sum()))  # ~3.3x median
+    amt_vals = tx[schema.AMT_COL].to_numpy()
+    amt_vals[fraud_mask] = np.round(amt_vals[fraud_mask] * uplift, 2)
+    tx[schema.AMT_COL] = amt_vals
+
     # Reorder transaction columns to canonical header order.
     tx = tx[schema.transaction_columns()]
     id_df = id_df[schema.identity_columns()]
@@ -197,18 +207,20 @@ def _make_labels(rng: np.random.Generator, tx: pd.DataFrame, has_id: np.ndarray)
     """Deterministic fraud signal: latent linear combo + noise, thresholded to FRAUD_RATE."""
     dt = tx[schema.TIME_COL].to_numpy()
     time_frac = (dt - dt.min()) / (dt.max() - dt.min())
-    # Concept drift: the amount->fraud relationship weakens and mildly reverses over
-    # the window. A model fit on early data and evaluated on late data (temporal
-    # split) therefore generalises worse than one trained on time-interleaved folds
-    # (random CV) — which is exactly the optimism the leakage experiment quantifies.
-    amt_weight = 0.9 * (1.0 - 0.9 * time_frac)  # +0.9 early -> +0.09 late (signal fades)
+    # Concept drift on a SECONDARY feature (C2): predictive early, fades to nothing
+    # late. A model fit on early data and evaluated on late data (temporal split) thus
+    # generalises worse than one trained on time-interleaved folds (random CV) — the
+    # optimism the leakage experiment quantifies. Amount is kept OUT of the label here
+    # and instead made predictive via a post-hoc fraud uplift (see make_synthetic), so
+    # it is a stable, economically meaningful signal rather than a drifting one.
+    c2_weight = 1.0 * (1.0 - 0.5 * time_frac)  # +1.0 early -> +0.5 late (moderate concept drift)
     latent = (
-        amt_weight * _z(np.log1p(tx[schema.AMT_COL].to_numpy()))
-        + 0.7 * (tx["card6"].to_numpy() == "credit").astype(float)
+        0.7 * (tx["card6"].to_numpy() == "credit").astype(float)
         + 1.1 * (tx["P_emaildomain"].to_numpy() == "anonymous.com").astype(float)
         + 0.5 * _z(np.nan_to_num(tx["C1"].to_numpy()))
-        + 0.4 * _z(np.nan_to_num(tx["V1"].to_numpy()))
+        + 0.6 * _z(np.nan_to_num(tx["V1"].to_numpy()))
         + 0.3 * has_id.astype(float)
+        + c2_weight * _z(np.nan_to_num(tx["C2"].to_numpy()))
     )
     latent = latent + rng.normal(0, 1.0, size=len(tx))
     thresh = np.quantile(latent, 1.0 - FRAUD_RATE)

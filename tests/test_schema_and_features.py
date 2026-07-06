@@ -34,6 +34,12 @@ def test_fraud_rate_is_plausible(synthetic_frame: pd.DataFrame):
     assert 0.01 < rate < 0.10  # synthetic base rate ~3.5%
 
 
+def test_fraud_targets_higher_amounts(synthetic_frame: pd.DataFrame):
+    """Fraud amounts skew higher than legit (economics: review must beat fraud caught)."""
+    med = synthetic_frame.groupby(schema.TARGET)[schema.AMT_COL].median()
+    assert med[1] > med[0] * 1.5
+
+
 def test_base_features_are_row_local(synthetic_frame: pd.DataFrame):
     """Permuting rows must permute base features identically (no cross-row dependence)."""
     base_cols = ["amt_log", "amt_cents", "amt_is_round", "dt_hour", "dt_dow", "dt_hour_sin"]
