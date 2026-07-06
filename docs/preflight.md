@@ -12,7 +12,7 @@ Regenerate after changing the toolchain; do not hand-edit.
 | git | ✅ PASS | git version 2.54.0 | — | — |
 | Kaggle (data pull) | ⚠️ ABSENT | package not installed, credentials missing | Phase A | uv sync --group data; supply kaggle.json; accept competition rules |
 | AWS CLI + creds | ⚠️ ABSENT | aws CLI not on PATH | Phase D | install AWS CLI v2; configure creds/region (owner) |
-| Terraform | ⚠️ ABSENT | not on PATH | Phase D | install Terraform (needed for `terraform validate` once infra/ exists) |
+| Terraform | ✅ PASS | Terraform v1.15.7 | — | — |
 | R (Rscript) | ✅ PASS | Rscript (R) version 4.6.0 (2026-04-24) | — | — |
 | PySpark (local) | ⚠️ ABSENT | pyspark not installed — notebook authored, not executed | — | install a JRE + `uv add pyspark` for local SparkSession (optional; SPEC Section 10) |
 | Web access (SR 11-7) | ✅ PASS | federalreserve.gov reachable | — | — |
@@ -25,4 +25,3 @@ Regenerate after changing the toolchain; do not hand-edit.
 - Outstanding phase blockers (handled at their phase, fallbacks in SPEC Section 10):
   - Phase A: **Kaggle (data pull)** — package not installed, credentials missing
   - Phase D: **AWS CLI + creds** — aws CLI not on PATH
-  - Phase D: **Terraform** — not on PATH

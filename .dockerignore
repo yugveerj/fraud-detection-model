@@ -1,0 +1,19 @@
+.venv/
+.git/
+data/
+mlruns/
+mlartifacts/
+mlflow.db*
+docs/
+tests/
+infra/
+web/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+# Keep only the serving bundle from artifacts/ (Dockerfile copies artifacts/serving/).
+artifacts/model/
+artifacts/figures/
+artifacts/operating_point.json

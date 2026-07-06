@@ -3,6 +3,24 @@
 Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 
+## D-007 — Phase D serving choices
+- **Live SHAP in Lambda (not the precompute-only fallback).** XGBoost `TreeExplainer`
+  is cheap to build/query, so `/score` computes top-5 SHAP live; the explainer is
+  built once at cold start. Demo presets are additionally precomputed (SPEC §5). The
+  §10 precompute-only fallback stays available if cold start ever bites.
+- **Serving bundle not committed.** `artifacts/serving/` (bundle.joblib + presets +
+  meta) is gitignored and rebuilt by `serving.artifact` at image-build time; the
+  demo's data snapshot is committed at `web/presets.json`.
+- **Billing alarms via CloudWatch in us-east-1** (billing metrics are only there),
+  through an aliased provider + SNS email — spec-faithful ("CloudWatch billing
+  alarms"). Requires the account's "Receive Billing Alerts" toggle (owner, once).
+- **Two-phase apply** (ECR first, then push image, then the rest): the Lambda needs
+  an existing image. Encoded in `deploy.yml`; `lifecycle.ignore_changes=[image_uri]`
+  keeps `terraform apply` from fighting the CI image push.
+- **Serving bug fixed during demo verification:** float32 V-column NaNs leaked into
+  `presets.json` (invalid JSON) and would have reached `/score` responses. Fixed via
+  `pd.isna` (all NaN types) + null-valued SHAP factors + `allow_nan=False` guard.
+
 ## D-006 — Synthetic fixture tuned for realistic decision economics (Phase C)
 The decision layer's net value was negative on holdout because synthetic fraud
 amounts (~$60) were comparable to the $25 review cost — catching fraud barely beat

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fraud Scoring — calibrated decision demo</title>
+    <meta
+      name="description"
+      content="Demo of a calibrated fraud-detection model with a dollar-framed decision threshold. Public research dataset — not a production system."
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Fraud scoring — calibrated decision demo</h1>
+        <p class="lede">
+          A calibrated fraud model scores a transaction and a <strong>dollar-framed</strong>
+          threshold turns the probability into a review/approve decision. The objective is
+          decision quality and validation rigor — not leaderboard AUC.
+        </p>
+        <div id="mode-banner" class="banner" hidden></div>
+      </header>
+
+      <section id="presets" class="cards" aria-label="Example transactions"></section>
+
+      <section id="result" class="result" hidden>
+        <h2>Model decision</h2>
+        <div class="decision-row">
+          <div class="prob">
+            <span id="prob-value">—</span>
+            <span class="prob-label">calibrated P(fraud)</span>
+          </div>
+          <div id="decision-badge" class="badge">—</div>
+          <div class="threshold">
+            threshold <span id="threshold-value">—</span>
+          </div>
+        </div>
+        <h3>Top contributing factors (SHAP)</h3>
+        <table id="factors">
+          <thead>
+            <tr><th>feature</th><th>value</th><th>contribution</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p class="caveat">
+          Many features are anonymized (Vesta <code>V*</code> / <code>id_*</code>), so factors
+          show <em>which engineered inputs</em> moved the score, not a business reason.
+        </p>
+        <p id="model-meta" class="meta"></p>
+      </section>
+
+      <footer>
+        <p>
+          Demonstration system on a public research dataset (IEEE-CIS) — not a production
+          fraud decision. Probabilities are calibrated; the operating point is optimized on a
+          validation slice and reported on a temporal holdout.
+        </p>
+      </footer>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -25,6 +25,9 @@ mlflow.db-*
 # report, not the (synthetic, version-sensitive) binary itself.
 *.joblib
 *.pkl
+# Serving bundle + presets are rebuilt by `serving.artifact` at image-build time.
+# The demo's data snapshot lives at web/presets.json (committed).
+artifacts/serving/
 
 # --- Python ---
 __pycache__/

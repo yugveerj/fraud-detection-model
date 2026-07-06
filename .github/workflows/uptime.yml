@@ -1,0 +1,70 @@
+name: Uptime check
+
+# A dead demo link when a recruiter clicks is a failure state (CLAUDE.md availability
+# guard). Pings the demo page + /healthz on a schedule; opens a GitHub Issue on failure
+# (same Issue-on-failure path as the monitoring breach alerts).
+on:
+  schedule:
+    - cron: "17 */6 * * *" # every 6 hours
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check demo page + API health
+        id: check
+        continue-on-error: true
+        env:
+          DEMO_URL: ${{ vars.DEMO_URL }}
+          API_BASE: ${{ vars.API_BASE }}
+        run: |
+          fail=0
+          if [ -n "$DEMO_URL" ]; then
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$DEMO_URL" || echo 000)
+            echo "demo $DEMO_URL -> $code"
+            [ "$code" = "200" ] || { echo "demo_fail=$code" >> "$GITHUB_OUTPUT"; fail=1; }
+          fi
+          if [ -n "$API_BASE" ]; then
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$API_BASE/healthz" || echo 000)
+            echo "healthz $API_BASE/healthz -> $code"
+            [ "$code" = "200" ] || { echo "api_fail=$code" >> "$GITHUB_OUTPUT"; fail=1; }
+          fi
+          if [ -z "$DEMO_URL$API_BASE" ]; then
+            echo "No DEMO_URL / API_BASE repo variables set — nothing to check yet."
+          fi
+          exit $fail
+
+      - name: Open an issue on failure
+        if: steps.check.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Uptime check failed';
+            const body = [
+              'The scheduled uptime check failed.',
+              '',
+              `- demo status: ${{ steps.check.outputs.demo_fail || 'ok/skipped' }}`,
+              `- /healthz status: ${{ steps.check.outputs.api_fail || 'ok/skipped' }}`,
+              '',
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'uptime',
+            });
+            if (existing.data.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['uptime'],
+              });
+            }

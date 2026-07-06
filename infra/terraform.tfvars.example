@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Owner-run values.
+region       = "us-west-2"
+project      = "fraud-scoring"
+pages_origin = "https://YOUR_GH_USERNAME.github.io"
+
+# OIDC deploy-role trust (GitHub Actions):
+github_owner = "YOUR_GH_USERNAME"
+github_repo  = "fraud-detection-model"
+
+# Billing-alarm email (leave "" to create alarms without an email subscription):
+alert_email = "you@example.com"
+
+# Set false if the GitHub OIDC provider already exists in the account:
+create_oidc_provider = true

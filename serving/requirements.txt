@@ -1,0 +1,10 @@
+# Runtime deps for the Lambda serving image (pinned to match the training env so the
+# pickled model loads). MLflow/evidently/kaggle are NOT needed at serve time.
+numpy==2.5.1
+pandas==2.3.3
+scipy==1.18.0
+scikit-learn==1.9.0
+joblib==1.5.3
+pydantic==2.13.4
+xgboost==3.3.0
+shap==0.52.0
