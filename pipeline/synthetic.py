@@ -60,9 +60,14 @@ def make_synthetic(
     # transactions per entity) so the strict-past tie path is genuinely exercised.
     gaps = rng.integers(1, 400, size=n)
     dt = 86400 + np.cumsum(gaps)
+    # Position in the observation window, 0 (earliest) .. 1 (latest). Drives the
+    # temporal drift injected into amounts and labels (real fraud data is
+    # non-stationary), so the leakage experiment and drift monitoring are meaningful.
+    time_frac = (dt - dt.min()) / (dt.max() - dt.min())
 
-    # --- Amount: heavy-tailed, cents preserved.
-    amt = np.round(np.exp(rng.normal(4.0, 1.0, size=n)) + rng.random(n), 2)
+    # --- Amount: heavy-tailed, cents preserved; mean drifts upward over time
+    #     (covariate drift the PSI/monitoring layer detects).
+    amt = np.round(np.exp(rng.normal(4.0 + 0.35 * time_frac, 1.0)) + rng.random(n), 2)
 
     tx = pd.DataFrame(
         {
@@ -190,8 +195,15 @@ def _v_block_frame(rng: np.random.Generator, n: int) -> pd.DataFrame:
 
 def _make_labels(rng: np.random.Generator, tx: pd.DataFrame, has_id: np.ndarray) -> np.ndarray:
     """Deterministic fraud signal: latent linear combo + noise, thresholded to FRAUD_RATE."""
+    dt = tx[schema.TIME_COL].to_numpy()
+    time_frac = (dt - dt.min()) / (dt.max() - dt.min())
+    # Concept drift: the amount->fraud relationship weakens and mildly reverses over
+    # the window. A model fit on early data and evaluated on late data (temporal
+    # split) therefore generalises worse than one trained on time-interleaved folds
+    # (random CV) — which is exactly the optimism the leakage experiment quantifies.
+    amt_weight = 0.9 * (1.0 - 0.9 * time_frac)  # +0.9 early -> +0.09 late (signal fades)
     latent = (
-        0.9 * _z(np.log1p(tx[schema.AMT_COL].to_numpy()))
+        amt_weight * _z(np.log1p(tx[schema.AMT_COL].to_numpy()))
         + 0.7 * (tx["card6"].to_numpy() == "credit").astype(float)
         + 1.1 * (tx["P_emaildomain"].to_numpy() == "anonymous.com").astype(float)
         + 0.5 * _z(np.nan_to_num(tx["C1"].to_numpy()))

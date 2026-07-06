@@ -29,8 +29,8 @@ jobs:
       - name: Pin Python
         run: uv python install 3.12
 
-      - name: Sync (core + dev)
-        run: uv sync
+      - name: Sync (core + dev + models)
+        run: uv sync --group models
 
       - name: Lint
         run: |
@@ -40,9 +40,8 @@ jobs:
       - name: Preflight (non-strict, informational)
         run: uv run python -m tooling.preflight || true
 
-      - name: Unit + causality tests
+      - name: Unit + causality tests (incl. slow grid)
         run: uv run pytest
 
-      # Enabled in Phase B once the training entrypoint exists:
-      # - name: Seeded smoke-train
-      #   run: uv run python -m pipeline.train --smoke
+      - name: Seeded smoke-train (synthetic fixture)
+        run: uv run python -m pipeline.train --smoke --source synthetic --no-register

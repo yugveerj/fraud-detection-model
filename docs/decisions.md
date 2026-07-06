@@ -3,6 +3,28 @@
 Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 
+## D-005 — Phase B modeling choices (MLflow SQLite, drift, calibration, artifacts)
+- **MLflow SQLite backend.** The file store is deprecated in MLflow 3.x and never
+  supported the model registry; switched tracking to `sqlite:///mlflow.db`
+  (`pipeline/experiments.py`). Registry is a hard requirement (registered model +
+  version + run id travel with the serving artifact).
+- **Injected temporal drift into the synthetic fixture.** The fixture was
+  stationary, so the random-CV-vs-temporal leakage experiment showed only noise.
+  Added a mild amount→fraud **signal fade** (concept drift, no reversal) + amount
+  **covariate drift**, so the leakage demo shows real inflation (XGBoost ≈ +54%)
+  and Phase E monitoring has drift to detect. Numbers stay labelled synthetic.
+- **Calibration method chosen a priori (isotonic), not by holdout.** Selecting the
+  calibration by holdout Brier would leak the test set into model selection; the
+  registered method is the spec default (isotonic). Reporting VAL + HOLDOUT Brier
+  exposed **calibration drift** — it helps in-distribution (VAL) but transfers
+  imperfectly to the drifted HOLDOUT, a monitoring/recalibration trigger for §7.
+- **Brier is a weak calibration diagnostic under imbalance** (rewards near-zero
+  predictions); the reliability curves in the decision report are the real check.
+- **Model binary not committed.** `experiments.md` + `artifacts/model/metadata.json`
+  are committed; the `.joblib` is regenerable via `pipeline.train` and (being
+  synthetic + version-sensitive) is gitignored. Phase D produces the real binary.
+- **numba/llvmlite floored** for Python 3.12 so `shap` resolves (D-002 follow-up).
+
 ## D-004 — Phase A leakage audit: three temporal-integrity bugs found and fixed
 A multi-agent adversarial leakage audit (5 lenses, reproduction-driven) plus a
 brute-force ground-truth test surfaced and fixed three real issues in the causal
