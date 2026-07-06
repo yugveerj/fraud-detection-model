@@ -50,7 +50,7 @@ Isotonic (default) and Platt calibration maps are fit on VALIDATION. Under class
 ## Registered model
 
 - **Name:** `fraud-scoring`  ·  **version:** `1`
-- **Run id:** `f3c8918a1e1241e8baa9ad2994c55c52`  ·  **calibration:** isotonic
-- **URI:** `models:/m-cded982a1b69443ba8ce1df3deffca4c`
+- **Run id:** `1449d41574ac40afa668f09d2a6bf72c`  ·  **calibration:** isotonic
+- **URI:** `models:/m-5d36901da7e34b4a89b4b4c7bc48ea3e`
 
 The registered model is the isotonic-calibrated XGBoost. Its version and run id travel with the serving artifact and are reported by `/healthz` (Phase D).

@@ -56,7 +56,7 @@ def net_value_curve(
     review_cost_total = review_cost * alerts
     net_value = fraud_value_caught - review_cost_total
 
-    return pd.DataFrame(
+    curve = pd.DataFrame(
         {
             "threshold": p_s,
             "alerts": alerts,
@@ -73,6 +73,15 @@ def net_value_curve(
             "net_per_100k": net_value / n * 100_000,
         }
     )
+    # Collapse tied-probability blocks: keep only the LAST row of each run, so every
+    # candidate threshold is realizable by a scalar `proba >= threshold` (you cannot
+    # alert a *partial* tie block). Isotonic calibration is a step function and
+    # produces large tie blocks, so without this the optimizer would report an
+    # operating point that neither `evaluate_at_threshold` nor serving can achieve.
+    keep = np.empty(n, dtype=bool)
+    keep[-1] = True
+    keep[:-1] = p_s[:-1] != p_s[1:]
+    return curve[keep].reset_index(drop=True)
 
 
 def optimize_operating_point(

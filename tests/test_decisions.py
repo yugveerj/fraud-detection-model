@@ -57,6 +57,29 @@ def test_sensitivity_table_threshold_monotonic_in_cost():
     assert all(a <= b + 1e-9 for a, b in zip(thr, thr[1:], strict=False))
 
 
+def test_optimize_is_realizable_on_tied_probabilities():
+    """Regression: with tied probabilities the optimum must be reachable by `>=`."""
+    y = np.array([1, 0, 0, 0, 0])
+    proba = np.array([0.5, 0.5, 0.5, 0.5, 0.5])  # one giant tie block
+    amt = np.array([500.0, 10.0, 10.0, 10.0, 10.0])
+    op = decisions.optimize_operating_point(y, proba, amt, review_cost=25.0)
+    realized = decisions.evaluate_at_threshold(y, proba, amt, op["threshold"], 25.0)
+    assert op["alerts"] == realized["alerts"]
+    assert op["net_value"] == realized["net_value"]  # not the unrealizable $475
+
+
+def test_every_curve_point_is_realizable_under_heavy_ties():
+    rng = np.random.default_rng(0)
+    y = (rng.random(300) < 0.2).astype(int)
+    proba = np.round(rng.random(300), 1)  # ~11 distinct values -> many ties
+    amt = rng.random(300) * 100 + 10
+    curve = decisions.net_value_curve(y, proba, amt, review_cost=25.0)
+    for _, row in curve.iterrows():
+        realized = decisions.evaluate_at_threshold(y, proba, amt, row["threshold"], 25.0)
+        assert row["alerts"] == realized["alerts"]
+        assert abs(row["net_value"] - realized["net_value"]) < 1e-6
+
+
 def test_statement_mentions_capture_fpr_and_net():
     stats = decisions.evaluate_at_threshold(Y, PROBA, AMOUNTS, threshold=0.4, review_cost=25.0)
     s = decisions.operating_point_statement(stats, provenance="synthetic")
