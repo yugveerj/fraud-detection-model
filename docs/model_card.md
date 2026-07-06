@@ -1,0 +1,58 @@
+# Model card — `fraud-scoring`
+
+Standard model-card fields (Mitchell et al.). All figures are **synthetic /
+illustrative** (built without Kaggle credentials on a schema-identical fixture); they
+reproduce the real IEEE-CIS results with one command once data is supplied.
+
+## Model details
+- **Name / version:** `fraud-scoring`, MLflow registry **v1** (run id embedded in the
+  serving artifact and reported by `/healthz`).
+- **Type:** isotonic-calibrated **XGBoost** classifier in a scikit-learn `Pipeline`
+  (leakage-safe preprocessing → gradient-boosted trees → isotonic calibration).
+- **Owner:** portfolio project #3. **Framework:** SR 11-7 / SR 26-2-style validation.
+- **Objective:** calibrated P(fraud) per transaction, turned into a review/approve
+  decision by a dollar-framed threshold.
+
+## Intended use
+- **In scope:** demonstration of model-risk-grade development, calibration, and
+  temporal validation on a public research dataset.
+- **Out of scope / not approved:** any real fraud decision. The API and demo carry the
+  disclaimer "Demonstration system on a public research dataset — not a production fraud
+  decision."
+
+## Training data
+- Kaggle **IEEE-CIS Fraud Detection** (`train_transaction` + `train_identity`),
+  segmented **by `TransactionDT`**: TRAIN 60% / VALIDATION 15% / HOLDOUT 25%.
+  Manifest: [`docs/data_manifest.md`](data_manifest.md). Class balance ≈ 3.5% fraud.
+
+## Evaluation & metrics (HOLDOUT, synthetic)
+| metric | value |
+| --- | --- |
+| PR-AUC (primary) | 0.308 |
+| ROC-AUC | 0.909 |
+| Brier | 0.0228 |
+| operating point | 35.9% fraud value captured @ 1.65% FPR |
+| net value | ≈ $236k / 100k transactions (review cost $25) |
+
+Threshold optimized on VALIDATION, frozen, reported on HOLDOUT. Independently reproduced
+in R ([`docs/validation_r/`](validation_r/replication.Rmd)). Full grid + leakage
+comparison: [`docs/experiments.md`](experiments.md).
+
+## Factors & interpretation
+- SHAP global importance + case studies ([`docs/decision_report.md`](decision_report.md)).
+- **Caveat:** `V*`/`id_*` features are anonymized — attributions show *which engineered
+  inputs* move a score, not a business reason.
+
+## Ethical considerations & limitations
+- **Non-production**; no real decisions are made.
+- **Label lag:** production fraud labels arrive weeks late; live metrics are unavailable
+  in real time — drift is watched via input/score distributions.
+- **Fairness:** the dataset lacks protected-attribute labels; no fairness assessment is
+  claimed. A production deployment would require one.
+- **Drift:** performance degrades on out-of-time data; monitored continuously with
+  breach → GitHub Issue ([`docs/validation_report.md`](validation_report.md) §7).
+
+## Maintenance
+- Retrain triggers, champion/challenger, and monitoring thresholds:
+  [`docs/validation_report.md`](validation_report.md) §7.
+- Reproduce: `uv run python -m pipeline.train --full && uv run python -m pipeline.evaluate --report`.

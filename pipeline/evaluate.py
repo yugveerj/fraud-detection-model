@@ -67,6 +67,7 @@ def run_report(source: str = "auto", review_cost: float = 25.0, profile: str = "
     _fig_reliability(y_hold, p_hold_base, p_hold)
 
     cases = _shap_section(base, sp.holdout, p_hold, y_hold, amt_hold, op["threshold"])
+    _export_holdout_scores(sp.holdout, y_hold, p_hold, amt_hold)
 
     report = _render_report(
         ds.provenance, review_cost, sp, op, hold_stats, statement, sensitivity, hold_metrics, cases
@@ -299,6 +300,23 @@ def _render_report(prov, review_cost, sp, op, hold, statement, sensitivity, hold
         "",
     ]
     return "\n".join(lines)
+
+
+def _export_holdout_scores(holdout, y_hold, p_hold, amt_hold):
+    """Export (id, label, calibrated probability, amount) for the independent R
+    replication (SPEC Section 7b) — R recomputes the metrics with no Python imports."""
+    import pandas as pd
+
+    out = REPO_ROOT / "docs" / "validation_r" / "holdout_scores.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "TransactionID": holdout[schema.ID_COL].to_numpy(),
+            "isFraud": y_hold,
+            "calibrated_proba": p_hold,
+            "TransactionAmt": amt_hold,
+        }
+    ).to_csv(out, index=False)
 
 
 def _persist_operating_point(op, hold, prov, review_cost):

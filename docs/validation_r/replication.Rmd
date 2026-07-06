@@ -1,0 +1,166 @@
+---
+title: "Independent replication (R) — fraud model holdout metrics"
+author: "Model validation (effective challenge, SR 11-7 §V)"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 8, fig.height = 4.5)
+```
+
+> **Replayed simulation on a static public dataset — synthetic fixture.** These numbers
+> reproduce the developer's *synthetic* results; on real IEEE-CIS data the same script
+> reconciles the real numbers. This document is the independent "effective challenge":
+> it recomputes the developer's holdout metrics **in R, with no imports from the Python
+> codebase**, from a single exported file `holdout_scores.csv`
+> (`TransactionID, isFraud, calibrated_proba, TransactionAmt`).
+
+```{r load}
+scores <- read.csv("holdout_scores.csv")
+y   <- scores$isFraud
+p   <- scores$calibrated_proba
+amt <- scores$TransactionAmt
+n   <- nrow(scores)
+cat(sprintf("holdout rows: %d | frauds: %d | base rate: %.3f%%\n", n, sum(y), 100 * mean(y)))
+
+# --- Developer (Python) figures being challenged, from the repo artifacts ---
+PY <- list(pr_auc = 0.3080, roc_auc = 0.9092, brier = 0.02283,
+           threshold = 0.25, value_capture = 0.359)
+TOL <- 0.01  # absolute tolerance for reconciliation
+```
+
+## 1. PR-AUC (average precision) — recomputed
+
+Average precision is the developer's primary metric (rare-positive). Implemented from
+first principles: sort by score, sweep the threshold, integrate precision over recall.
+
+```{r pr-auc}
+average_precision <- function(y, p) {
+  o <- order(p, decreasing = TRUE)
+  y <- y[o]; p <- p[o]
+  tp <- cumsum(y); fp <- cumsum(1 - y)
+  # Collapse tied scores to DISTINCT thresholds (keep the last index of each tie
+  # block). This matches scikit-learn: precision/recall are evaluated per distinct
+  # threshold, not per row. It is essential here because isotonic calibration produces
+  # large tie blocks — see the findings note below.
+  keep <- c(p[-length(p)] != p[-1], TRUE)
+  tp <- tp[keep]; fp <- fp[keep]
+  precision <- tp / (tp + fp)
+  recall <- tp / sum(y)
+  sum(diff(c(0, recall)) * precision) # AP = sum (R_i - R_{i-1}) P_i
+}
+roc_auc <- function(y, p) {
+  # Rank-based (Mann-Whitney U) with average ranks — tie-correct, equals sklearn.
+  r <- rank(p)
+  n_pos <- sum(y == 1); n_neg <- sum(y == 0)
+  (sum(r[y == 1]) - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+}
+pr_auc_r  <- average_precision(y, p)
+roc_auc_r <- roc_auc(y, p)
+cat(sprintf("R PR-AUC = %.4f (Python %.4f)\nR ROC-AUC = %.4f (Python %.4f)\n",
+            pr_auc_r, PY$pr_auc, roc_auc_r, PY$roc_auc))
+```
+
+## 2. Brier score + reliability curve
+
+```{r brier-reliability}
+brier_r <- mean((p - y)^2)
+cat(sprintf("R Brier = %.5f (Python %.5f)\n", brier_r, PY$brier))
+
+# Reliability curve (quantile bins for a rare-positive target).
+qs <- unique(quantile(p, seq(0, 1, length.out = 9)))
+bins <- cut(p, breaks = qs, include.lowest = TRUE)
+mean_pred <- tapply(p, bins, mean)
+obs_freq  <- tapply(y, bins, mean)
+plot(mean_pred, obs_freq, type = "b", pch = 19, col = "#4c78a8",
+     xlim = c(0, max(mean_pred, obs_freq)), ylim = c(0, max(mean_pred, obs_freq)),
+     xlab = "mean predicted probability", ylab = "observed fraud frequency",
+     main = "Reliability — HOLDOUT (R replication)")
+abline(0, 1, lty = 3, col = "grey40")
+```
+
+## 3. Value-capture at the frozen operating point
+
+The decision layer freezes a threshold on validation and reports on holdout. We
+independently recompute fraud value captured and net value at that threshold.
+
+```{r value-capture}
+thr <- PY$threshold
+alert <- p >= thr
+value_capture_r <- sum(amt[alert & y == 1]) / sum(amt[y == 1])
+review_cost <- 25
+net_per_100k_r <- (sum(amt[alert & y == 1]) - review_cost * sum(alert)) / n * 1e5
+cat(sprintf("R value capture @%.2f = %.3f (Python %.3f) | net/100k = $%.0f\n",
+            thr, value_capture_r, PY$value_capture, net_per_100k_r))
+
+# Value-capture curve (fraud value caught vs review volume).
+o <- order(p, decreasing = TRUE)
+cum_caught <- cumsum((y[o] == 1) * amt[o]) / sum(amt[y == 1])
+alert_rate <- seq_len(n) / n
+plot(alert_rate, cum_caught, type = "l", col = "#4c78a8", lwd = 2,
+     xlab = "review volume (alert rate)", ylab = "fraud value captured",
+     main = "Value-capture curve — HOLDOUT (R replication)")
+points(mean(alert), value_capture_r, col = "#e45756", pch = 19)
+```
+
+## 4. Score-distribution PSI (early vs late holdout)
+
+A within-holdout stability check: the score distribution of the first half of the
+(time-ordered) holdout vs the second half.
+
+```{r psi}
+psi_numeric <- function(ref, cur, bins = 10) {
+  edges <- unique(quantile(ref, seq(0, 1, length.out = bins + 1)))
+  e <- table(cut(ref, edges, include.lowest = TRUE)) / length(ref)
+  a <- table(cut(cur, edges, include.lowest = TRUE)) / length(cur)
+  eps <- 1e-6
+  e <- pmax(as.numeric(e), eps); a <- pmax(as.numeric(a), eps)
+  sum((a - e) * log(a / e))
+}
+half <- floor(n / 2)
+psi_score <- psi_numeric(p[1:half], p[(half + 1):n])
+cat(sprintf("score PSI (early vs late holdout) = %.4f  [>0.2 = significant shift]\n", psi_score))
+```
+
+## 5. Reconciliation
+
+```{r reconcile, echo=FALSE}
+recon <- data.frame(
+  metric = c("PR-AUC", "ROC-AUC", "Brier", "value_capture@thr"),
+  python = c(PY$pr_auc, PY$roc_auc, PY$brier, PY$value_capture),
+  R      = round(c(pr_auc_r, roc_auc_r, brier_r, value_capture_r), 5)
+)
+recon$abs_diff <- round(abs(recon$python - recon$R), 5)
+recon$within_tol <- recon$abs_diff <= TOL
+knitr::kable(recon)
+if (all(recon$within_tol)) {
+  cat("\n**FINDING: all metrics reconcile within tolerance (", TOL,
+      "). No discrepancies.**\n", sep = "")
+} else {
+  cat("\n**FINDING: discrepancies beyond tolerance — investigate.**\n")
+}
+```
+
+### Findings note — a discrepancy that reconciled
+
+A first-pass R implementation of average precision (evaluating precision/recall
+**per row**) gave PR-AUC ≈ 0.337 against the developer's 0.308 — **beyond tolerance**.
+Root cause: isotonic calibration produces large blocks of **tied** probabilities, and
+per-row evaluation double-counts precision within a tie block. scikit-learn (and the
+corrected R above) evaluate precision/recall at **distinct thresholds**, collapsing
+ties. With tie-aware AP the figures reconcile exactly (0.3080). A parallel issue affected
+ROC-AUC — per-row trapezoidal integration also mishandles ties, so the rank-based
+(Mann-Whitney, average-rank) form is used and reconciles exactly (0.9092). Brier and
+value-capture were unaffected (they do not depend on within-tie ordering). This is the
+value of an independent challenge: it surfaced two subtle tie-handling issues in the
+metric definitions that a shared codebase would have hidden.
+
+**Effective challenge conclusion.** The independent R recomputation of PR-AUC, ROC-AUC,
+Brier, and value-capture-at-threshold reproduces the developer's holdout results from
+the exported scores alone, with no shared code, once the tie-handling above is applied.
+(Numbers are synthetic; the procedure is what a validation team applies to the real
+results.)
