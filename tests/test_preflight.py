@@ -9,7 +9,7 @@ def test_run_checks_returns_all_items():
     checks = preflight.run_checks()
     items = {c.item for c in checks}
     # Every declared essential must be probed.
-    assert preflight.PHASE0_ESSENTIALS <= items
+    assert items >= preflight.PHASE0_ESSENTIALS
     # Each check carries a valid status.
     assert all(c.status in {preflight.PASS, preflight.ABSENT, preflight.FAIL} for c in checks)
 

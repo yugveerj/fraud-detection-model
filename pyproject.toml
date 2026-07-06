@@ -57,7 +57,7 @@ default-groups = ["dev"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = ["data", "artifacts", "mlruns", ".venv"]
+extend-exclude = ["data", "artifacts", "mlruns", ".venv", "*.ipynb"]
 
 [tool.ruff.lint]
 select = [
