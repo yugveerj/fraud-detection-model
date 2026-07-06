@@ -1,0 +1,3 @@
+# Raw competition data lands here at fetch time and is gitignored.
+# Never commit train_transaction.csv / train_identity.csv or derivatives that
+# contain raw rows. Only aggregate/derived artifacts leave this directory.

@@ -1,0 +1,54 @@
+# --- Raw competition data: NEVER commit (CLAUDE.md hard rule) ---
+data/*
+!data/.gitkeep
+*.csv
+*.csv.zip
+*.parquet
+!tests/fixtures/*.parquet
+!tests/fixtures/*.csv
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+kaggle.json
+**/kaggle.json
+.aws/
+*.pem
+
+# --- Model / experiment artifacts (derived binaries are committed selectively) ---
+mlruns/
+mlflow.db
+*.joblib
+*.pkl
+!artifacts/**/*.joblib
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# --- R ---
+.Rhistory
+.RData
+.Rproj.user/
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/

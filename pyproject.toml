@@ -1,0 +1,85 @@
+[project]
+name = "fraud-detection-model"
+version = "0.1.0"
+description = "Calibrated fraud-detection model with SR 11-7-style validation on the IEEE-CIS dataset"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+# Core stack needed from Phase A onward. Heavier / phase-specific stacks live in
+# dependency-groups so the base sync (and CI smoke) stays lean and fast.
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scipy>=1.13",
+    "scikit-learn>=1.5",
+    "pyarrow>=16",
+    "joblib>=1.4",
+    "matplotlib>=3.9",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+# Installed by default (see tool.uv.default-groups). Lint + test toolchain.
+dev = [
+    "ruff>=0.6",
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+]
+# Phase B: GBMs, explainability, experiment tracking. Requires libomp on macOS.
+models = [
+    "xgboost>=2.1",
+    "lightgbm>=4.4",
+    "shap>=0.46",
+    "mlflow>=2.15",
+]
+# Phase A: Kaggle pull (package only; credentials are supplied out-of-band).
+data = [
+    "kaggle>=1.6",
+]
+# Phase E: drift monitoring.
+monitoring = [
+    "evidently>=0.4",
+]
+# EDA + notebook execution (Phase A EDA, Phase B PySpark notebook authoring).
+notebook = [
+    "jupyter>=1.1",
+    "ipykernel>=6.29",
+    "nbconvert>=7.16",
+    "nbformat>=5.10",
+]
+
+[tool.uv]
+# Application project (top-level modules run via `python -m`), not a library —
+# nothing to build/install for the root itself.
+package = false
+default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data", "artifacts", "mlruns", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "C4",  # flake8-comprehensions
+]
+ignore = [
+    "E501",  # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "causality: property-style tests that enforce past-only feature computation",
+    "slow: tests that train models or touch large data",
+]

@@ -1,0 +1,48 @@
+name: CI
+
+# Lint + unit/causality tests + seeded smoke-train (SPEC Section: CI).
+# Full retrain is a separate manually-triggered workflow (added in Phase B).
+# CI never touches raw Kaggle data — causality/smoke tests run on the committed
+# synthetic schema-identical fixture (SPEC Section 10).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Pin Python
+        run: uv python install 3.12
+
+      - name: Sync (core + dev)
+        run: uv sync
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Preflight (non-strict, informational)
+        run: uv run python -m tooling.preflight || true
+
+      - name: Unit + causality tests
+        run: uv run pytest
+
+      # Enabled in Phase B once the training entrypoint exists:
+      # - name: Seeded smoke-train
+      #   run: uv run python -m pipeline.train --smoke
