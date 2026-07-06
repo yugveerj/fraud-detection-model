@@ -1,0 +1,33 @@
+{
+  "provenance": "synthetic",
+  "review_cost": 25.0,
+  "threshold": 0.25,
+  "validation": {
+    "threshold": 0.25,
+    "review_cost": 25.0,
+    "n": 750,
+    "alerts": 22,
+    "alert_rate": 0.029333333333333333,
+    "recall": 0.5555555555555556,
+    "fpr": 0.01639344262295082,
+    "fraud_value_caught": 4492.69,
+    "fraud_value_total": 5416.69,
+    "value_capture_rate": 0.8294161194382547,
+    "net_value": 3942.6899999999996,
+    "net_per_100k": 525691.9999999999
+  },
+  "holdout": {
+    "threshold": 0.25,
+    "review_cost": 25.0,
+    "n": 1250,
+    "alerts": 32,
+    "alert_rate": 0.0256,
+    "recall": 0.34285714285714286,
+    "fpr": 0.01646090534979424,
+    "fraud_value_caught": 3754.64,
+    "fraud_value_total": 10448.39,
+    "value_capture_rate": 0.3593510579141858,
+    "net_value": 2954.64,
+    "net_per_100k": 236371.2
+  }
+}

@@ -1,8 +1,8 @@
 {
   "registered_model": "fraud-scoring",
   "version": "1",
-  "run_id": "508faebf96794b74b64ca3ae582051c3",
-  "model_uri": "models:/m-a566a2c5c69943d8b0f81f41971bf0a9",
+  "run_id": "f3c8918a1e1241e8baa9ad2994c55c52",
+  "model_uri": "models:/m-cded982a1b69443ba8ce1df3deffca4c",
   "calibration": "isotonic",
   "model_type": "isotonic-calibrated XGBoost pipeline",
   "provenance": "synthetic",
@@ -437,9 +437,10 @@
       "DeviceType"
     ]
   },
-  "operating_threshold": null,
-  "holdout_brier": 0.02653490980243313,
-  "holdout_pr_auc": 0.08648682625722443,
-  "created_at": "2026-07-06T04:15:04+00:00",
-  "note": "Trained on SYNTHETIC data \u2014 placeholder; retrain on real IEEE-CIS."
+  "operating_threshold": 0.25,
+  "holdout_brier": 0.02283104494125711,
+  "holdout_pr_auc": 0.3079621631316788,
+  "created_at": "2026-07-06T04:35:00+00:00",
+  "note": "Trained on SYNTHETIC data \u2014 placeholder; retrain on real IEEE-CIS.",
+  "review_cost": 25.0
 }

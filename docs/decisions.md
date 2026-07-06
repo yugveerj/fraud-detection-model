@@ -3,6 +3,22 @@
 Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 
+## D-006 — Synthetic fixture tuned for realistic decision economics (Phase C)
+The decision layer's net value was negative on holdout because synthetic fraud
+amounts (~$60) were comparable to the $25 review cost — catching fraud barely beat
+the cost of the reviews to find it. Real fraud targets larger amounts. Two changes
+(both realistic, still labelled synthetic):
+- **Fraud amounts uplifted** post-labeling (~3.3× median → fraud ≈ $205 vs legit
+  ≈ $61), so review is economically worthwhile and amount is a *stable* predictive
+  signal.
+- **Concept drift moved to a secondary feature (C2)** and made *moderate* (fades to
+  half, not zero), decoupling the leakage/monitoring story from the amount signal.
+Result on synthetic: holdout ROC-AUC ≈ 0.91, frozen operating point captures ~36%
+of fraud value at 1.65% FPR for **+$236k net per 100k**, leakage inflation ≈ +25%,
+mild calibration drift retained. This is fixture *realism* tuning, not result
+fabrication — every number stays labelled synthetic. Downstream artifacts
+(experiments.md, EDA notebook, manifest) were regenerated from the final fixture.
+
 ## D-005 — Phase B modeling choices (MLflow SQLite, drift, calibration, artifacts)
 - **MLflow SQLite backend.** The file store is deprecated in MLflow 3.x and never
   supported the model registry; switched tracking to `sqlite:///mlflow.db`
