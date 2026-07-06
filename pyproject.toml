@@ -26,11 +26,15 @@ dev = [
     "pytest-cov>=5.0",
 ]
 # Phase B: GBMs, explainability, experiment tracking. Requires libomp on macOS.
+# numba/llvmlite floored to 3.12-compatible versions so shap does not drag in a
+# pre-3.10 llvmlite that fails to build.
 models = [
     "xgboost>=2.1",
     "lightgbm>=4.4",
     "shap>=0.46",
     "mlflow>=2.15",
+    "numba>=0.60",
+    "llvmlite>=0.43",
 ]
 # Phase A: Kaggle pull (package only; credentials are supplied out-of-band).
 data = [
