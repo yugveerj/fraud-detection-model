@@ -1,0 +1,30 @@
+{
+  "model": "LightGBM",
+  "registry_version": 2,
+  "provenance": "real",
+  "threshold": 0.1215,
+  "review_cost": 25.0,
+  "headline": [
+    {
+      "value": "590,540",
+      "label": "transactions analyzed",
+      "raw": 590540
+    },
+    {
+      "value": "+23.2%",
+      "label": "PR-AUC inflation caught (random-CV vs temporal)",
+      "raw": 23.2
+    },
+    {
+      "value": "47.8%",
+      "label": "fraud value captured (holdout)",
+      "raw": 0.4782431251450506
+    },
+    {
+      "value": "\u2248$111K",
+      "label": "net value / 100k transactions",
+      "raw": 111346.31218884412
+    }
+  ],
+  "disclaimer": "Non-production demonstration on the public IEEE-CIS dataset."
+}
