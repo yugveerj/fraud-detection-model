@@ -106,9 +106,10 @@ Owner approval is required only for actions that are irreversible, public, or co
 - Git: small, coherent commits; never force-push; feature branches per phase.
 
 ## Stack (decided)
-- Python 3.11+ via `uv`; pandas, NumPy, scikit-learn, **XGBoost** (primary
-  GBM; a LightGBM run appears in the experiment grid for comparison), SHAP,
-  matplotlib, joblib; EDA and stretch notebooks in Jupyter
+- Python 3.11+ via `uv`; pandas, NumPy, scikit-learn, GBMs **XGBoost +
+  LightGBM** (XGBoost the a-priori primary; **LightGBM promoted to champion on
+  validation — decisions D-011**; both stay in the grid for the leakage comparison),
+  SHAP, matplotlib, joblib; EDA and stretch notebooks in Jupyter
 - Lint/format: **ruff**; tests: **pytest** (unit + property-style causality tests)
 - Experiment tracking: **MLflow** (local tracking + model registry); the
   experiment comparison table is exported to `docs/experiments.md`; the deployed
