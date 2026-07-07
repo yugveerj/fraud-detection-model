@@ -88,6 +88,7 @@ jobs:
         run: |
           cp artifacts/serving/presets.json web/presets.json
           uv run python -m tooling.build_web_metrics   # results-card numbers from committed sources
+          uv run python -m tooling.build_web_curves    # chart series (net-value, reliability, leakage)
           sed -i "s#__FRAUD_API_BASE__#${{ vars.API_BASE }}#g" web/config.js
 
       - name: Publish demo to gh-pages (preserves /monitoring/)

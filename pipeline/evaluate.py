@@ -33,6 +33,7 @@ REPORT_PATH = REPO_ROOT / "docs" / "decision_report.md"
 ARTIFACT_DIR = REPO_ROOT / "artifacts"
 OPERATING_POINT_PATH = ARTIFACT_DIR / "operating_point.json"
 MODEL_META_PATH = ARTIFACT_DIR / "model" / "metadata.json"
+CURVES_DIR = ARTIFACT_DIR / "curves"  # chart series for the demo (tooling/build_web_curves)
 SHAP_SAMPLE = 1000
 
 
@@ -73,6 +74,7 @@ def run_report(source: str = "auto", review_cost: float = 25.0, profile: str = "
 
     cases = _shap_section(base, sp.holdout, p_hold, y_hold, amt_hold, op["threshold"])
     _export_holdout_scores(sp.holdout, y_hold, p_hold, amt_hold)
+    _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p_hold_base, p_hold)
 
     report = _render_report(
         ds.provenance,
@@ -350,6 +352,54 @@ def _export_holdout_scores(holdout, y_hold, p_hold, amt_hold):
             "TransactionAmt": amt_hold,
         }
     ).to_csv(out, index=False)
+
+
+def _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p_hold_base, p_hold):
+    """Chart series for the demo page (tooling/build_web_curves assembles web/curves/).
+
+    - net_value.json: net value per 100k vs threshold on VALIDATION (where the operating
+      point is optimized), downsampled. The frozen point carries BOTH the validation peak
+      and the holdout realization at that same threshold — the val→holdout gap is the
+      out-of-time drift, shown honestly rather than hidden.
+    - reliability.json: holdout reliability bins, uncalibrated vs isotonic.
+    """
+    CURVES_DIR.mkdir(parents=True, exist_ok=True)
+
+    nv = decisions.net_value_curve(y_val, p_val, amt_val, review_cost).sort_values(
+        "threshold", kind="stable"
+    )
+    step = max(1, len(nv) // 180)
+    pts = nv.iloc[::step]
+    net = {
+        "basis": "validation",
+        "review_cost": review_cost,
+        "series": [
+            {"t": round(float(t), 5), "net": round(float(v))}
+            for t, v in zip(pts["threshold"], pts["net_per_100k"], strict=True)
+        ],
+        "op": {
+            "t": round(float(op["threshold"]), 5),
+            "net_val": round(float(op["net_per_100k"])),
+            "net_holdout": round(float(hold_stats["net_per_100k"])),
+        },
+    }
+    (CURVES_DIR / "net_value.json").write_text(json.dumps(net, indent=2), encoding="utf-8")
+
+    mp_u, of_u, _ = metrics.reliability_curve(y_hold, p_hold_base, n_bins=8)
+    mp_c, of_c, _ = metrics.reliability_curve(y_hold, p_hold, n_bins=8)
+    rel = {
+        "basis": "holdout",
+        "n_bins": 8,
+        "uncalibrated": [
+            {"pred": round(float(a), 5), "emp": round(float(b), 5)}
+            for a, b in zip(mp_u, of_u, strict=True)
+        ],
+        "isotonic": [
+            {"pred": round(float(a), 5), "emp": round(float(b), 5)}
+            for a, b in zip(mp_c, of_c, strict=True)
+        ],
+    }
+    (CURVES_DIR / "reliability.json").write_text(json.dumps(rel, indent=2), encoding="utf-8")
 
 
 def _persist_operating_point(op, hold, prov, review_cost):

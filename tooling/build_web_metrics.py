@@ -56,6 +56,11 @@ def build() -> dict:
 
     value_capture = hold["value_capture_rate"]
     net = hold["net_per_100k"]
+    val = op["validation"]
+
+    def _op_stats(d: dict) -> dict:
+        keys = ("alert_rate", "recall", "fpr", "value_capture_rate", "net_per_100k")
+        return {k: d[k] for k in keys}
 
     return {
         "model": model,
@@ -64,6 +69,8 @@ def build() -> dict:
         "provenance": op.get("provenance", meta.get("provenance", "real")),
         "threshold": round(op["threshold"], 4),
         "review_cost": op.get("review_cost", 25.0),
+        # The frozen operating point — optimized on validation, reported on holdout.
+        "operating_point": {"validation": _op_stats(val), "holdout": _op_stats(hold)},
         "headline": [
             {
                 "value": f"{total_rows:,}",

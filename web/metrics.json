@@ -5,6 +5,22 @@
   "provenance": "real",
   "threshold": 0.1215,
   "review_cost": 25.0,
+  "operating_point": {
+    "validation": {
+      "alert_rate": 0.06919091001456294,
+      "recall": 0.678041958041958,
+      "fpr": 0.043585158694680375,
+      "value_capture_rate": 0.610558969549694,
+      "net_per_100k": 250928.83688375648
+    },
+    "holdout": {
+      "alert_rate": 0.05796051071900295,
+      "recall": 0.5525490196078431,
+      "fpr": 0.040263794857403445,
+      "value_capture_rate": 0.4782431251450506,
+      "net_per_100k": 111346.31218884412
+    }
+  },
   "headline": [
     {
       "value": "590,540",
