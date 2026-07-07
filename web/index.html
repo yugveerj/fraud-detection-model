@@ -3,123 +3,121 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fraud scoring — calibrated decision demo</title>
+    <title>Fraud scoring — model decision worksheet</title>
     <meta
       name="description"
-      content="A calibrated fraud-detection model turns a probability into a dollar-framed review/approve decision at a frozen threshold. Non-production demonstration on the public IEEE-CIS dataset."
+      content="A calibrated fraud-detection model turns a probability into a review/approve decision at a frozen, dollar-optimized threshold. Non-production demonstration on the public IEEE-CIS dataset."
     />
+    <link rel="preload" href="fonts/plex-mono-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/archivo-800.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="terminal">
-      <!-- ── top bar ─────────────────────────────────────────────── -->
-      <header class="topbar">
-        <div class="brand">
-          <span class="dot" aria-hidden="true"></span>
-          <span class="brand-name">fraud&#8209;scoring</span>
-          <span class="brand-sub">calibrated decision demo</span>
+    <main class="sheet">
+      <!-- ── masthead ─────────────────────────────────────────────── -->
+      <header class="masthead">
+        <div class="masthead-top">
+          <div class="ident">
+            <span class="ident-mark">Fraud&#8209;Scoring</span>
+            <span class="ident-sub">model decision worksheet</span>
+          </div>
+          <span class="status">Non&#8209;production</span>
         </div>
-        <div class="tags">
-          <span class="tag" id="model-tag">LightGBM&nbsp;v2</span>
-          <span class="tag tag-live" id="mode-tag" title="scoring source">·</span>
-          <span class="tag tag-warn">non&#8209;production</span>
-        </div>
+        <dl class="fields" id="fields"><!-- model / registry / calibration / basis injected --></dl>
       </header>
 
-      <!-- ── results card (above the fold) ───────────────────────── -->
-      <section class="results" aria-labelledby="results-h">
-        <h1 id="results-h" class="sr-only">Headline results</h1>
-        <ol class="stats" id="stats"><!-- injected from metrics.json --></ol>
-        <p class="results-note" id="results-note">
-          Isotonic-calibrated LightGBM · validated <strong>temporally</strong> · operating
-          point frozen on validation, reported on a held-out future slice. Objective:
+      <!-- ── summary of results ───────────────────────────────────── -->
+      <section class="block">
+        <h2 class="eyebrow"><span>Summary of results</span></h2>
+        <ol class="ledger" id="stats"><!-- injected from metrics.json --></ol>
+        <p class="note" id="results-note">
+          Isotonic-calibrated LightGBM, validated <strong>temporally</strong>; the operating
+          point is frozen on validation and reported on a held-out future slice. Objective:
           decision quality and validation rigor — not leaderboard AUC.
         </p>
       </section>
 
-      <!-- ── the decision instrument (signature) ─────────────────── -->
-      <section class="instrument" aria-labelledby="instrument-h">
-        <div class="instrument-head">
-          <h2 id="instrument-h">The decision</h2>
-          <p class="lede">
-            A calibrated probability meets a frozen, dollar-optimized threshold. That
-            crossing <em>is</em> the decision — pick a transaction and watch where it lands.
-          </p>
-        </div>
+      <!-- ── the decision (signature) ─────────────────────────────── -->
+      <section class="block">
+        <h2 class="eyebrow"><span>The decision</span></h2>
+        <p class="lede">
+          A calibrated probability meets a frozen, dollar-optimized <em>review threshold</em>,
+          drawn below as a control limit. Select a transaction — where it lands is the decision.
+        </p>
 
-        <div class="chips" role="group" aria-label="Example transactions" id="chips">
+        <div class="chips" id="chips" role="group" aria-label="Example transactions">
           <!-- preset chips injected -->
         </div>
 
-        <!-- number line -->
-        <figure class="numberline" id="numberline">
-          <figcaption class="nl-caption" id="nl-caption">
-            Select a transaction above to score it.
-          </figcaption>
-          <div class="nl-track" id="nl-track" aria-hidden="true">
-            <div class="nl-zone nl-zone-approve"></div>
-            <div class="nl-zone nl-zone-alert" id="nl-zone-alert"></div>
-            <div class="nl-threshold" id="nl-threshold">
-              <span class="nl-threshold-tag">threshold</span>
+        <figure class="gauge">
+          <div class="gauge-scale" id="gauge-scale">
+            <div class="gauge-zone gauge-zone-flag" id="gauge-flag" aria-hidden="true"></div>
+            <div class="gauge-limit" id="gauge-limit" aria-hidden="true">
+              <span class="gauge-limit-tag" id="gauge-limit-tag">review threshold</span>
             </div>
-            <div class="nl-point" id="nl-point" hidden>
-              <span class="nl-point-tag" id="nl-point-tag"></span>
+            <div class="gauge-marker" id="gauge-marker" hidden aria-hidden="true">
+              <span class="gauge-marker-tag" id="gauge-marker-tag"></span>
             </div>
           </div>
-          <div class="nl-axis" aria-hidden="true">
-            <span>0%</span><span class="nl-axis-mid">P(fraud)</span><span>100%</span>
+          <div class="gauge-axis" aria-hidden="true">
+            <span>0%</span><span>calibrated P(fraud)</span><span>100%</span>
           </div>
+          <figcaption class="gauge-cap" id="gauge-cap">Select a transaction to score it.</figcaption>
         </figure>
 
-        <!-- verdict + factors -->
         <div class="readout" id="readout" hidden>
-          <div class="verdict" id="verdict" aria-live="polite">
-            <span class="verdict-badge" id="verdict-badge">—</span>
-            <span class="verdict-detail" id="verdict-detail"></span>
+          <div class="verdict" aria-live="polite">
+            <span class="stamp" id="verdict-stamp">—</span>
+            <span class="verdict-line" id="verdict-line"></span>
           </div>
 
           <div class="factors">
-            <h3>What moved the score</h3>
+            <h3 class="eyebrow eyebrow-sm"><span>Contributions to the score</span></h3>
             <ul class="bars" id="bars"><!-- SHAP diverging bars injected --></ul>
             <p class="caveat">
-              Many inputs are anonymized (Vesta <code>V*</code> / <code>id_*</code>), so
-              factors show <em>which engineered inputs</em> moved the score, not a business
-              reason. Bars right of center push toward fraud; left, away.
+              Many inputs are anonymized (Vesta <code>V*</code> / <code>id_*</code>): factors
+              show <em>which engineered inputs</em> moved the score, not a business reason.
+              Right of centre pushes toward fraud; left, away.
             </p>
             <p class="meta" id="model-meta"></p>
           </div>
         </div>
       </section>
 
-      <!-- ── proof links (below the fold) ────────────────────────── -->
-      <nav class="proof" aria-label="The full validation package">
-        <a class="proof-link" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_report.md">
-          <span class="proof-title">Validation report</span>
-          <span class="proof-sub">SR&nbsp;11-7 / SR&nbsp;26-2-style, with independent R replication</span>
+      <!-- ── the validation package ───────────────────────────────── -->
+      <nav class="block package" aria-label="The validation package">
+        <h2 class="eyebrow"><span>The validation package</span></h2>
+        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_report.md">
+          <span class="exhibit-name">Validation report</span>
+          <span class="exhibit-desc">SR&nbsp;11-7 / SR&nbsp;26-2-style, with independent R replication</span>
+          <span class="exhibit-arrow" aria-hidden="true">→</span>
         </a>
-        <a class="proof-link" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/decision_report.md">
-          <span class="proof-title">Decision report</span>
-          <span class="proof-sub">the dollar cost model, operating point, and SHAP</span>
+        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/decision_report.md">
+          <span class="exhibit-name">Decision report</span>
+          <span class="exhibit-desc">the dollar cost model, operating point, and SHAP</span>
+          <span class="exhibit-arrow" aria-hidden="true">→</span>
         </a>
-        <a class="proof-link" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/model_card.md">
-          <span class="proof-title">Model card</span>
-          <span class="proof-sub">one page, standard fields</span>
+        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/model_card.md">
+          <span class="exhibit-name">Model card</span>
+          <span class="exhibit-desc">one page, standard fields</span>
+          <span class="exhibit-arrow" aria-hidden="true">→</span>
         </a>
-        <a class="proof-link" href="https://github.com/yugveerj/fraud-detection-model">
-          <span class="proof-title">Source &amp; monitoring →</span>
-          <span class="proof-sub">the repository, tests, and replayed drift dashboard</span>
+        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model">
+          <span class="exhibit-name">Source &amp; monitoring</span>
+          <span class="exhibit-desc">the repository, tests, and replayed drift dashboard</span>
+          <span class="exhibit-arrow" aria-hidden="true">→</span>
         </a>
       </nav>
 
-      <footer class="foot">
+      <footer class="colophon">
         <p>
-          <strong>Demonstration system</strong> on a public research dataset (IEEE-CIS) —
-          not a production fraud decision. Probabilities are calibrated; the operating point
-          is optimized on a validation slice and reported on a temporal holdout. The drift
+          <strong>Demonstration system</strong> on a public research dataset (IEEE-CIS) — not a
+          production fraud decision. Probabilities are calibrated; the operating point is
+          optimized on a validation slice and reported on a temporal holdout. The drift
           monitoring is a replayed simulation on a static dataset.
         </p>
       </footer>
-    </div>
+    </main>
 
     <script src="config.js"></script>
     <script src="app.js"></script>

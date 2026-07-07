@@ -1,9 +1,10 @@
 "use strict";
 
-/* The analyst's terminal — demo controller.
+/* The validation worksheet — demo controller.
    Hybrid scoring: try the live API with a short timeout, fall back to the precomputed
-   preset result so the page never hangs or breaks on a cold/absent endpoint. The
-   decision is rendered as a point on a number line crossing the frozen threshold. */
+   preset so the page never hangs on a cold/absent endpoint. The decision is drawn as a
+   control-limit gauge (probability vs the frozen review threshold) and settled with a
+   REVIEW / APPROVE stamp. */
 
 const CONFIG = window.FRAUD_CONFIG || {};
 const API_BASE = (CONFIG.API_BASE || "").replace(/\/$/, "");
@@ -29,38 +30,45 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 let PRESETS = [];
 let THRESHOLD = 0.1215;
-let selectedIndex = null;
 let firstScore = true;
 
 async function boot() {
   await loadMetrics();
   await loadPresets();
-  setModeTag(API_LIVE ? "live" : "offline");
 }
 
-/* ── results card ──────────────────────────────────────────────────────── */
+/* ── masthead fields + results ledger ──────────────────────────────────── */
 async function loadMetrics() {
+  let m;
   try {
-    const m = await (await fetch("metrics.json", { cache: "no-store" })).json();
-    if (typeof m.threshold === "number") THRESHOLD = m.threshold;
-    el("model-tag").textContent = `${m.model} v${m.registry_version}`;
-    positionThreshold();
-    const ol = el("stats");
-    ol.innerHTML = "";
-    (m.headline || []).forEach((h) => {
-      const li = document.createElement("li");
-      li.className = "stat";
-      li.innerHTML =
-        `<div class="stat-value">${withAccentUnit(h.value)}</div>` +
-        `<div class="stat-label">${escapeHtml(h.label)}</div>`;
-      ol.appendChild(li);
-    });
+    m = await (await fetch("metrics.json", { cache: "no-store" })).json();
   } catch (e) {
-    el("stats").innerHTML = '<li class="stat"><div class="stat-label">Metrics unavailable.</div></li>';
+    el("stats").innerHTML = '<li class="entry"><div class="entry-label">Metrics unavailable.</div></li>';
+    return;
   }
+  if (typeof m.threshold === "number") THRESHOLD = m.threshold;
+  positionLimit();
+
+  const fields = [
+    ["Model", `${m.calibration}-calibrated ${m.model}`],
+    ["Registry", `v${m.registry_version}`],
+    ["Data", `${m.provenance} IEEE-CIS`],
+    ["Review cost", `$${Number(m.review_cost).toFixed(0)} / alert`],
+  ];
+  el("fields").innerHTML = fields
+    .map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`)
+    .join("");
+
+  el("stats").innerHTML = (m.headline || [])
+    .map(
+      (h) =>
+        `<li class="entry"><div class="entry-value">${withAccentUnit(h.value)}</div>` +
+        `<div class="entry-label">${escapeHtml(h.label)}</div></li>`
+    )
+    .join("");
 }
 
-// Colour the unit/sign glyph of a headline number with the data accent.
+// Mute the unit/sign glyphs of a headline figure (keep the digits full ink).
 function withAccentUnit(value) {
   return escapeHtml(value).replace(/([%$+≈K,]+)/g, '<span class="u">$1</span>');
 }
@@ -74,8 +82,7 @@ async function loadPresets() {
     el("chips").innerHTML = '<p class="caveat">Could not load example transactions.</p>';
     return;
   }
-  const chips = el("chips");
-  chips.innerHTML = "";
+  el("chips").innerHTML = "";
   PRESETS.forEach((p, i) => {
     const amt = p.display && p.display.TransactionAmt;
     const btn = document.createElement("button");
@@ -86,21 +93,18 @@ async function loadPresets() {
       `${escapeHtml(p.label || p.name)}` +
       (amt != null ? ` <span class="chip-amt">$${fmtNum(amt)}</span>` : "");
     btn.addEventListener("click", () => selectPreset(i));
-    chips.appendChild(btn);
+    el("chips").appendChild(btn);
   });
 }
 
 /* ── scoring (hybrid: live API with timeout → precomputed fallback) ─────── */
 async function selectPreset(i) {
-  selectedIndex = i;
-  const chips = el("chips").querySelectorAll(".chip");
-  chips.forEach((c, j) => c.setAttribute("aria-pressed", String(j === i)));
-  el("nl-caption").textContent = "scoring…";
-
-  const preset = PRESETS[i];
-  const { result, live } = await scoreTransaction(preset);
-  setModeTag(live ? "live" : "offline");
-  renderResult(result);
+  el("chips")
+    .querySelectorAll(".chip")
+    .forEach((c, j) => c.setAttribute("aria-pressed", String(j === i)));
+  el("gauge-cap").textContent = "scoring…";
+  const { result, live } = await scoreTransaction(PRESETS[i]);
+  renderResult(result, live);
 }
 
 async function scoreTransaction(preset) {
@@ -123,51 +127,53 @@ async function scoreTransaction(preset) {
   return { result: preset.expected, live: false };
 }
 
-/* ── the number line + verdict + factors ───────────────────────────────── */
-function positionThreshold() {
-  el("nl-threshold").style.left = pct(THRESHOLD) + "%";
-  el("nl-zone-alert").style.left = pct(THRESHOLD) + "%";
-  const tag = el("nl-threshold").querySelector(".nl-threshold-tag");
-  if (tag) tag.textContent = `threshold ${(THRESHOLD * 100).toFixed(1)}%`;
+/* ── control-limit gauge + verdict + factors ───────────────────────────── */
+function positionLimit() {
+  const x = pct(THRESHOLD);
+  el("gauge-limit").style.left = x + "%";
+  el("gauge-flag").style.left = x + "%";
+  const tag = el("gauge-limit-tag");
+  if (tag) tag.textContent = `review threshold ${(THRESHOLD * 100).toFixed(1)}%`;
 }
-
 function pct(p) {
   return clamp(Number(p) * 100, 0, 100);
 }
 
-function renderResult(r) {
+function renderResult(r, live) {
   const p = Number(r.fraud_probability);
-  const isAlert = r.decision ? r.decision === "review" : p >= THRESHOLD;
-  const target = clamp(p * 100, 0.7, 99.3);
+  const isFlag = r.decision ? r.decision === "review" : p >= THRESHOLD;
+  const target = clamp(p * 100, 0.6, 99.4);
 
-  // number line
-  const point = el("nl-point");
-  point.hidden = false;
-  point.className = "nl-point " + (isAlert ? "is-alert" : "is-approve");
-  el("nl-point-tag").textContent = fmtPct(p);
+  const marker = el("gauge-marker");
+  marker.hidden = false;
+  marker.className = "gauge-marker " + (isFlag ? "is-flag" : "is-clear");
+  el("gauge-marker-tag").textContent = fmtPct(p);
   if (firstScore) {
-    point.style.left = "0%";
-    requestAnimationFrame(() => requestAnimationFrame(() => (point.style.left = target + "%")));
+    marker.style.left = "0%";
+    requestAnimationFrame(() => requestAnimationFrame(() => (marker.style.left = target + "%")));
     firstScore = false;
   } else {
-    point.style.left = target + "%";
+    marker.style.left = target + "%";
   }
-  el("nl-caption").textContent = isAlert
-    ? "above the threshold → sent for review"
-    : "below the threshold → approved";
-  el("numberline").setAttribute(
+  el("gauge-cap").textContent = isFlag
+    ? "crosses the control limit → flagged for review"
+    : "under the control limit → cleared";
+  el("gauge-scale").setAttribute(
+    "role",
+    "img"
+  );
+  el("gauge-scale").setAttribute(
     "aria-label",
-    `Calibrated fraud probability ${fmtPct(p)}, threshold ${(THRESHOLD * 100).toFixed(1)}%, ` +
-      `decision ${isAlert ? "review" : "approve"}.`
+    `Calibrated fraud probability ${fmtPct(p)}, review threshold ${(THRESHOLD * 100).toFixed(1)}%, ` +
+      `decision ${isFlag ? "review" : "approve"}.`
   );
 
-  // verdict
   el("readout").hidden = false;
-  const badge = el("verdict-badge");
-  badge.textContent = isAlert ? "ALERT · REVIEW" : "APPROVE";
-  badge.className = "verdict-badge " + (isAlert ? "alert" : "approve");
-  el("verdict-detail").innerHTML =
-    `calibrated P(fraud) <b>${fmtPct(p)}</b> vs frozen threshold ` +
+  const stamp = el("verdict-stamp");
+  stamp.textContent = isFlag ? "Review" : "Approve";
+  stamp.className = "stamp " + (isFlag ? "review" : "approve");
+  el("verdict-line").innerHTML =
+    `calibrated P(fraud) <b>${fmtPct(p)}</b> against the review threshold ` +
     `<b>${(THRESHOLD * 100).toFixed(1)}%</b>`;
 
   renderBars(r.top_factors || []);
@@ -176,7 +182,8 @@ function renderResult(r) {
   if (r.model_version) parts.push("model v" + r.model_version);
   if (r.calibration) parts.push(r.calibration + " calibration");
   if (r.provenance) parts.push(r.provenance + " data");
-  el("model-meta").textContent = parts.join(" · ");
+  parts.push(live ? "scored live" : "cached response");
+  el("model-meta").textContent = parts.join("  ·  ");
 }
 
 function renderBars(factors) {
@@ -186,7 +193,7 @@ function renderBars(factors) {
   const maxAbs = Math.max(0.001, ...top.map((f) => Math.abs(Number(f.shap))));
   top.forEach((f) => {
     const shap = Number(f.shap);
-    const w = (Math.abs(shap) / maxAbs) * 48; // half-track max width (%)
+    const w = (Math.abs(shap) / maxAbs) * 48;
     const dir = shap >= 0 ? "pos" : "neg";
     const li = document.createElement("li");
     li.className = "bar-row";
@@ -199,28 +206,11 @@ function renderBars(factors) {
   });
 }
 
-/* ── small helpers ─────────────────────────────────────────────────────── */
-function setModeTag(mode) {
-  const t = el("mode-tag");
-  if (!API_LIVE) {
-    t.textContent = "cached";
-    t.className = "tag tag-live is-offline";
-    t.title = "scoring source: precomputed (no live endpoint in this build)";
-    return;
-  }
-  const live = mode === "live";
-  t.textContent = live ? "live API" : "cached";
-  t.className = "tag tag-live " + (live ? "is-live" : "is-offline");
-  t.title = live
-    ? "scored just now by the live AWS endpoint"
-    : "endpoint cold or unreachable — showing the precomputed result";
-}
-
+/* ── helpers ───────────────────────────────────────────────────────────── */
 function fmtPct(p) {
   const v = Number(p) * 100;
   if (v >= 99.95) return "100%";
   if (v < 0.1) return v.toFixed(3) + "%";
-  if (v < 10) return v.toFixed(1) + "%";
   return v.toFixed(1) + "%";
 }
 function fmtNum(v) {

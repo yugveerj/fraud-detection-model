@@ -1,6 +1,7 @@
 {
   "model": "LightGBM",
   "registry_version": 2,
+  "calibration": "isotonic",
   "provenance": "real",
   "threshold": 0.1215,
   "review_cost": 25.0,

@@ -60,6 +60,7 @@ def build() -> dict:
     return {
         "model": model,
         "registry_version": int(meta["version"]),
+        "calibration": meta.get("calibration", "isotonic"),
         "provenance": op.get("provenance", meta.get("provenance", "real")),
         "threshold": round(op["threshold"], 4),
         "review_cost": op.get("review_cost", 25.0),
