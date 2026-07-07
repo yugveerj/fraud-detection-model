@@ -84,9 +84,10 @@ jobs:
             --image-uri "$ECR_URL:${{ steps.image.outputs.tag }}" >/dev/null
           aws lambda wait function-updated --function-name "$FN"
 
-      - name: Wire the API URL into the demo
+      - name: Wire the API URL + refresh demo data
         run: |
           cp artifacts/serving/presets.json web/presets.json
+          uv run python -m tooling.build_web_metrics   # results-card numbers from committed sources
           sed -i "s#__FRAUD_API_BASE__#${{ vars.API_BASE }}#g" web/config.js
 
       - name: Publish demo to gh-pages (preserves /monitoring/)
