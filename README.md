@@ -13,6 +13,19 @@ function would expect to review it.
 > (`uv run python -m pipeline.train --full`); with no Kaggle credentials the pipeline
 > falls back to a schema-identical synthetic fixture so tests and CI still run.
 
+## Live
+
+- **Demo:** <https://yugveerj.github.io/fraud-detection-model/> — score three preset
+  transactions against the deployed model (calibrated probability, dollar-framed
+  decision, live SHAP factors).
+- **API:** `https://mrx6i8np6k.execute-api.us-east-2.amazonaws.com` — `GET /healthz`,
+  `POST /score` (pydantic-validated). Deployed on AWS Lambda + API Gateway via Terraform
+  ([`infra/`](infra/)): arm64/Graviton, throttled, billing-alarmed, scale-to-zero
+  (≈ $0–3/mo).
+- **Monitoring:** <https://yugveerj.github.io/fraud-detection-model/monitoring/> —
+  replayed Evidently + PSI drift, refreshed by a scheduled GitHub Action; a scheduled
+  uptime check pings the demo + `/healthz` and opens an Issue on failure.
+
 ## What it does
 
 ```mermaid
