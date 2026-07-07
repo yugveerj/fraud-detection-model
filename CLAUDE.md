@@ -64,12 +64,16 @@ Owner approval is required only for actions that are irreversible, public, or co
 - IMPORTANT: **Never commit raw competition data.** The Kaggle IEEE-CIS data is
   pulled via the Kaggle API with owner credentials at setup, gitignored, and only
   derived artifacts (aggregates, charts, model binaries, reports) enter the repo.
-- **Live-AWS boundary.** You author all Terraform (`infra/`) and the deploy
-  workflow. You do **not** run `terraform apply` against a real AWS account — that
-  happens through owner-triggered CI (GitHub Actions OIDC) or the owner locally.
-  `terraform plan` / `validate` / `fmt` are fine; `apply`, `destroy`, and any
-  live-cloud mutation are not agent actions. This is the mechanism behind the deploy
-  gate, not a rule that softens it.
+- **Live-AWS boundary (owner-authorized apply — amended 2026-07-06).** The owner
+  explicitly authorized agent-executed `terraform apply` for this deployment. The
+  agent MAY run `apply` against the owner's AWS account, but only when ALL hold:
+  (a) credentials are configured via the standard local AWS credential chain
+  (`~/.aws/`, SSO, or env) — **never pasted into the conversation**; (b) the agent
+  first runs `terraform plan` and presents it with the monthly cost projection;
+  (c) billing alarms + API Gateway throttling are in the stack (they are). The agent
+  verifies identity with `aws sts get-caller-identity` before applying and smoke-tests
+  `/healthz` after. **`destroy` and any resource deletion still require explicit
+  per-action owner confirmation.** `plan` / `validate` / `fmt` remain always allowed.
 - **R and PySpark/Databricks are author-only unless a runtime check passes.**
   Write `docs/validation_r/replication.Rmd` and the PySpark notebook regardless.
   Render/execute R only if `Rscript` is present; otherwise mark it for the owner.

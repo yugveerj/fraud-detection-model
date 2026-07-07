@@ -10,12 +10,20 @@ resource "aws_lambda_function" "this" {
   image_uri     = "${aws_ecr_repository.this.repository_url}:${var.image_tag}"
   memory_size   = var.lambda_memory_mb
   timeout       = var.lambda_timeout_s
-  architectures = ["x86_64"]
+  architectures = ["arm64"] # Graviton — matches the arm64 build + ~20% cheaper
 
   environment {
     variables = {
       ALLOWED_ORIGIN = var.pages_origin
       MODEL_DIR      = "/var/task/artifacts/serving"
+      # Lambda cold-start hardening: writable caches + single-threaded numeric libs
+      # (thread contention on a small container hurts more than it helps here).
+      NUMBA_CACHE_DIR      = "/tmp"
+      MPLCONFIGDIR         = "/tmp"
+      OMP_NUM_THREADS      = "2"
+      OPENBLAS_NUM_THREADS = "1"
+      MKL_NUM_THREADS      = "1"
+      NUMBA_NUM_THREADS    = "1"
     }
   }
 

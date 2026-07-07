@@ -46,6 +46,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-west-2' }}
 
+      - name: Set up QEMU (arm64 cross-build on x86 runners)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -65,7 +70,7 @@ jobs:
           TAG="sha-${GITHUB_SHA::12}"
           aws ecr get-login-password --region "${{ vars.AWS_REGION || 'us-west-2' }}" \
             | docker login --username AWS --password-stdin "${ECR_URL%/*}"
-          docker build -t "$ECR_URL:$TAG" -t "$ECR_URL:latest" .
+          docker build --platform linux/arm64 -t "$ECR_URL:$TAG" -t "$ECR_URL:latest" .
           docker push "$ECR_URL:$TAG"
           docker push "$ECR_URL:latest"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"

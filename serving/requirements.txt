@@ -1,10 +1,13 @@
-# Runtime deps for the Lambda serving image (pinned to match the training env so the
-# pickled model loads). MLflow/evidently/kaggle are NOT needed at serve time.
-numpy==2.5.1
-pandas==2.3.3
+# Runtime deps for the Lambda serving image, pinned to the exact versions the model
+# bundle was built with so the pickle loads. MLflow/evidently/kaggle are NOT needed at
+# serve time. numba/llvmlite are floored to 3.12-compatible builds (shap otherwise drags
+# in a pre-3.12 llvmlite that fails to build on the Lambda python:3.12 base image).
+numpy==2.4.6
 scipy==1.18.0
 scikit-learn==1.9.0
 joblib==1.5.3
 pydantic==2.13.4
 xgboost==3.3.0
 shap==0.52.0
+numba==0.66.0
+llvmlite==0.48.0

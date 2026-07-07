@@ -18,14 +18,14 @@ variable "image_tag" {
 
 variable "lambda_memory_mb" {
   type        = number
-  default     = 2048
-  description = "Lambda memory (MB). SHAP + XGBoost init benefit from headroom."
+  default     = 3008
+  description = "Lambda memory (MB). More memory => more vCPU => faster cold start; the pandas/shap/numba imports need the CPU."
 }
 
 variable "lambda_timeout_s" {
   type        = number
-  default     = 30
-  description = "Lambda timeout (seconds)."
+  default     = 60
+  description = "Lambda timeout (seconds). Covers the container cold-start (imports + model load); warm calls are ~1s."
 }
 
 variable "throttle_rate" {

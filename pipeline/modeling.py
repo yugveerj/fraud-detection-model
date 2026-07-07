@@ -10,7 +10,6 @@ calibrated XGBoost.
 from __future__ import annotations
 
 import numpy as np
-from lightgbm import LGBMClassifier
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
@@ -18,6 +17,10 @@ from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
 from pipeline import encoders
+
+# NOTE: lightgbm is imported lazily inside make_model, not at module level. The serving
+# image (xgboost only) unpickles a bundle that references this module (for _FeatureBinder);
+# a top-level lightgbm import would make that fail with ModuleNotFoundError.
 
 SEED = 42
 MODEL_NAMES = ("logreg", "xgboost", "lightgbm")
@@ -88,6 +91,8 @@ def make_model(name: str, y_train=None, profile: str = "full", seed: int = SEED)
         )
         kind = "tree"
     else:  # lightgbm
+        from lightgbm import LGBMClassifier  # lazy: keep it out of the serving image
+
         est = LGBMClassifier(
             scale_pos_weight=spw,
             random_state=seed,
