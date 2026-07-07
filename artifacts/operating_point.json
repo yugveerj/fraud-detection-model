@@ -1,33 +1,33 @@
 {
   "provenance": "real",
   "review_cost": 25.0,
-  "threshold": 0.1369047462940216,
+  "threshold": 0.12154696132596685,
   "validation": {
-    "threshold": 0.1369047462940216,
+    "threshold": 0.12154696132596685,
     "review_cost": 25.0,
     "n": 88581,
-    "alerts": 5426,
-    "alert_rate": 0.06125467086621284,
-    "recall": 0.6495104895104895,
-    "fpr": 0.03651506952450415,
-    "fraud_value_caught": 357983.98900000023,
+    "alerts": 6129,
+    "alert_rate": 0.06919091001456294,
+    "recall": 0.678041958041958,
+    "fpr": 0.043585158694680375,
+    "fraud_value_caught": 375500.27300000034,
     "fraud_value_total": 615010.657,
-    "value_capture_rate": 0.5820777004844653,
-    "net_value": 222333.98900000023,
-    "net_per_100k": 250995.12197875415
+    "value_capture_rate": 0.610558969549694,
+    "net_value": 222275.27300000034,
+    "net_per_100k": 250928.83688375648
   },
   "holdout": {
-    "threshold": 0.1369047462940216,
+    "threshold": 0.12154696132596685,
     "review_cost": 25.0,
     "n": 147635,
-    "alerts": 7644,
-    "alert_rate": 0.05177634029870966,
-    "recall": 0.5376470588235294,
-    "fpr": 0.03439155295190655,
-    "fraud_value_caught": 375979.652,
+    "alerts": 8557,
+    "alert_rate": 0.05796051071900295,
+    "recall": 0.5525490196078431,
+    "fpr": 0.040263794857403445,
+    "fraud_value_caught": 378311.128,
     "fraud_value_total": 791043.526,
-    "value_capture_rate": 0.47529578290234314,
-    "net_value": 184879.652,
-    "net_per_100k": 125227.52192908186
+    "value_capture_rate": 0.4782431251450506,
+    "net_value": 164386.12800000003,
+    "net_per_100k": 111346.31218884412
   }
 }
