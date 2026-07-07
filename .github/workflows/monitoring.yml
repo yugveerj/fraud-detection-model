@@ -46,12 +46,21 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
 
-      - name: Replay the next week
+      - name: Fetch real IEEE-CIS data (Kaggle token from secret)
+        env:
+          KAGGLE_ACCESS_TOKEN: ${{ secrets.KAGGLE_ACCESS_TOKEN }}
         run: |
-          uv sync --group models --group monitoring
+          uv sync --group models --group monitoring --group data
+          mkdir -p ~/.kaggle
+          printf '%s' "$KAGGLE_ACCESS_TOKEN" > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
+          uv run python -m pipeline.fetch_data
+
+      - name: Replay the next week (real holdout)
+        run: |
           RESET=""
           [ "${{ github.event.inputs.reset }}" = "true" ] && RESET="--reset"
-          uv run python -m monitoring.replay_week --source synthetic --out site/monitoring $RESET
+          uv run python -m monitoring.replay_week --source real --n-batches 20 --out site/monitoring $RESET
 
       - name: Publish to gh-pages /monitoring/ (preserves the demo)
         uses: peaceiris/actions-gh-pages@v4
@@ -69,16 +78,22 @@ jobs:
             const fs = require('fs');
             const { owner, repo } = context.repo;
             const b = JSON.parse(fs.readFileSync('site/monitoring/breach.json', 'utf8'));
-            const title = `Drift breach — simulated week ${String(b.week).padStart(2, '0')}`;
+            // Stable title (no week number) so repeat breaches dedupe onto one Issue.
+            const title = 'Drift monitoring breach';
             const body = [
-              '**Replayed drift monitoring detected a breach** (static public dataset — not production).',
+              `**Breach on simulated week ${String(b.week).padStart(2, '0')}** — replayed on the real IEEE-CIS holdout.`,
               '',
               ...b.breaches.map((x) => `- ${x}`),
               '',
-              `Report: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
-              'Published: the /monitoring/ index on GitHub Pages.',
+              `Run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId} · /monitoring/ on Pages.`,
             ].join('\n');
             try {
               await github.rest.issues.createLabel({ owner, repo, name: 'drift', color: 'b60205' });
             } catch (e) { /* exists */ }
-            await github.rest.issues.create({ owner, repo, title, body, labels: ['drift'] });
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: 'drift' });
+            const hit = open.data.find((i) => i.title === title);
+            if (hit) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: hit.number, body });
+            } else {
+              await github.rest.issues.create({ owner, repo, title, body, labels: ['drift'] });
+            }

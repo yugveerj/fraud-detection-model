@@ -52,6 +52,15 @@ def test_base_features_are_row_local(synthetic_frame: pd.DataFrame):
         assert equal_with_nan(original[col].to_numpy(), permuted_realigned[col].to_numpy())
 
 
+def test_base_features_constant_matches_builder(synthetic_frame: pd.DataFrame):
+    """features.BASE_FEATURES must list exactly the columns add_base_features adds."""
+    before = set(synthetic_frame.columns)
+    after = set(features.add_base_features(synthetic_frame).columns)
+    added = after - before
+    assert set(features.BASE_FEATURES) == added
+    assert len(features.BASE_FEATURES) == len(added)  # no dupes
+
+
 def test_amt_is_round_flag():
     df = pd.DataFrame({schema.AMT_COL: [100.00, 59.99, 25.0, 25.5], schema.TIME_COL: [1, 2, 3, 4]})
     out = features.add_base_features(df)

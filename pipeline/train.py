@@ -1,8 +1,9 @@
 """Reproducible training entrypoint (SPEC Commands).
 
-Runs the full experiment grid, registers the isotonic-calibrated XGBoost in MLflow,
-exports ``docs/experiments.md``, and writes the serving artifact
-(``artifacts/model/``) that Phase D's Lambda loads. Seeded and deterministic.
+Runs the full experiment grid, registers the isotonic-calibrated production model
+(``modeling.PRODUCTION_MODEL``) in MLflow, exports ``docs/experiments.md``, and writes
+the committed champion record (``artifacts/model/metadata.json``). The Lambda serves the
+separate bundle built by ``serving.artifact`` (same seeded config). Seeded and deterministic.
 
     uv run python -m pipeline.train --full     # full grid + register + artifact
     uv run python -m pipeline.train --smoke     # tiny seeded run for CI plumbing
@@ -17,7 +18,7 @@ from pathlib import Path
 
 import joblib
 
-from pipeline import experiments
+from pipeline import experiments, modeling
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_DIR = REPO_ROOT / "artifacts" / "model"
@@ -38,7 +39,7 @@ def save_serving_artifact(result: experiments.GridResult) -> dict:
         "run_id": reg.get("run_id"),
         "model_uri": reg.get("model_uri"),
         "calibration": "isotonic",
-        "model_type": "isotonic-calibrated XGBoost pipeline",
+        "model_type": f"isotonic-calibrated {modeling.PRODUCTION_MODEL} pipeline",
         "provenance": result.provenance,
         "profile": result.profile,
         "feature_columns": result.feature_columns,

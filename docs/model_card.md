@@ -4,10 +4,12 @@ Standard model-card fields (Mitchell et al.). Figures are computed on the **real
 IEEE-CIS Fraud Detection data** (590,540 transactions).
 
 ## Model details
-- **Name / version:** `fraud-scoring`, MLflow registry **v1** (run id embedded in the
-  serving artifact and reported by `/healthz`).
-- **Type:** isotonic-calibrated **XGBoost** classifier in a scikit-learn `Pipeline`
+- **Name / version:** `fraud-scoring`, MLflow registry **v2** (run id embedded in the
+  serving artifact and reported by `/healthz`). Champion selected over XGBoost on
+  VALIDATION ([`docs/decisions.md`](decisions.md) D-011).
+- **Type:** isotonic-calibrated **LightGBM** classifier in a scikit-learn `Pipeline`
   (leakage-safe preprocessing → gradient-boosted trees → isotonic calibration).
+- **Challenger:** Platt-calibrated LightGBM, registered `fraud-scoring-challenger` v1.
 - **Owner:** portfolio project #3. **Framework:** SR 11-7 / SR 26-2-style validation.
 - **Objective:** calibrated P(fraud) per transaction, turned into a review/approve
   decision by a dollar-framed threshold.
@@ -27,15 +29,18 @@ IEEE-CIS Fraud Detection data** (590,540 transactions).
 ## Evaluation & metrics (HOLDOUT, 147,635 transactions)
 | metric | value |
 | --- | --- |
-| PR-AUC (primary) | 0.463 |
-| ROC-AUC | 0.885 |
-| Brier (calibrated; 0.071 uncalibrated) | 0.0236 |
-| operating point | 47.5% fraud value captured @ 3.44% FPR (recall 53.8%) |
-| net value | ≈ $125k / 100k transactions (review cost $25) |
+| PR-AUC (primary) | 0.464 |
+| ROC-AUC | 0.879 |
+| Brier (calibrated; 0.052 uncalibrated) | 0.0235 |
+| operating point | 47.8% fraud value captured @ 4.03% FPR (recall 55.3%) |
+| net value | ≈ $111k / 100k transactions (review cost $25) |
 
 Threshold optimized on VALIDATION, frozen, reported on HOLDOUT. Independently reproduced
 in R ([`docs/validation_r/`](validation_r/replication.Rmd)). Full grid + leakage
-comparison: [`docs/experiments.md`](experiments.md).
+comparison: [`docs/experiments.md`](experiments.md). Isotonic is the champion calibrator
+despite a small ranking cost (holdout PR-AUC 0.464 vs 0.479 for the Platt challenger) —
+it wins on Brier and reliability, which the dollar thresholds depend on; the tradeoff is
+documented in [`docs/validation_report.md`](validation_report.md) §4.2.
 
 ## Factors & interpretation
 - SHAP global importance + case studies ([`docs/decision_report.md`](decision_report.md)).

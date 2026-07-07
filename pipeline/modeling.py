@@ -4,7 +4,7 @@ Every model is a scikit-learn ``Pipeline(preprocessor, estimator)`` so training,
 prediction, and calibration share one interface. Class imbalance is handled with
 cost-sensitive weights (``scale_pos_weight`` / ``class_weight='balanced'``) — never
 SMOTE (see docs/decisions.md D-001). The registered production model is the
-calibrated XGBoost.
+calibrated LightGBM (``PRODUCTION_MODEL``; promoted from XGBoost per D-011).
 """
 
 from __future__ import annotations
@@ -14,16 +14,22 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from xgboost import XGBClassifier
 
 from pipeline import encoders
 
-# NOTE: lightgbm is imported lazily inside make_model, not at module level. The serving
-# image (xgboost only) unpickles a bundle that references this module (for _FeatureBinder);
-# a top-level lightgbm import would make that fail with ModuleNotFoundError.
+# NOTE: xgboost and lightgbm are imported lazily inside make_model, not at module level.
+# The serving image ships only the production model's package, but unpickling its bundle
+# imports this module (for _FeatureBinder); a top-level import of the *other* GBM would
+# fail with ModuleNotFoundError. Keep both GBM imports lazy.
 
 SEED = 42
 MODEL_NAMES = ("logreg", "xgboost", "lightgbm")
+
+# The model registered + served in production (promoted per docs/decisions D-011).
+# Changing this and rerunning train/evaluate/serving.artifact swaps the whole pipeline.
+PRODUCTION_MODEL = "lightgbm"
+CHAMPION_CALIBRATION = "isotonic"  # a priori default (D-005); a cal_models label
+CHALLENGER_CALIBRATION = "platt"  # Platt — the named challenger (G4); a cal_models label
 
 # Modest, hand-set hyperparameters (tuned on VALIDATION only, per spec). "smoke"
 # variants are tiny so CI validates the plumbing in seconds.
@@ -81,6 +87,8 @@ def make_model(name: str, y_train=None, profile: str = "full", seed: int = SEED)
         est = LogisticRegression(class_weight="balanced", solver="lbfgs", n_jobs=-1, **params)
         kind = "linear"
     elif name == "xgboost":
+        from xgboost import XGBClassifier  # lazy: keep it out of a lightgbm serving image
+
         est = XGBClassifier(
             tree_method="hist",
             eval_metric="aucpr",

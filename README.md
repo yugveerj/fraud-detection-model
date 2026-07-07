@@ -32,7 +32,7 @@ function would expect to review it.
 flowchart LR
   K[Kaggle IEEE-CIS] -->|fetch + manifest| D[Temporal split<br/>60/15/25 by TransactionDT]
   D --> F[Causal features<br/>strict-past aggregates]
-  F --> M[XGBoost + isotonic calibration<br/>MLflow registry]
+  F --> M[LightGBM + isotonic calibration<br/>MLflow registry]
   M --> C[Decision layer<br/>dollar-framed threshold]
   C --> S[Lambda + API Gateway<br/>/score /healthz]
   S --> W[Static demo<br/>GitHub Pages]
@@ -57,12 +57,18 @@ The tree models — the ones deployed — inflate **+17–23%**; the linear mode
 doesn't exploit temporal structure, doesn't. That inflation is why every split here is
 temporal.
 
-**Holdout** (isotonic-calibrated XGBoost, 147,635 transactions): PR-AUC **0.463**,
-ROC-AUC **0.885**, Brier **0.024** (0.071 uncalibrated — calibration matters).
-**Operating point:** captures **47.5% of fraud value at 3.44% FPR** (recall 53.8%) for
-**≈ $125k net per 100k transactions** (review cost $25), optimized on validation and
+**Holdout** (isotonic-calibrated LightGBM, 147,635 transactions): PR-AUC **0.464**,
+ROC-AUC **0.879**, Brier **0.024** (0.052 uncalibrated — calibration matters).
+**Operating point:** captures **47.8% of fraud value at 4.03% FPR** (recall 55.3%) for
+**≈ $111k net per 100k transactions** (review cost $25), optimized on validation and
 reported on the temporal holdout. Independently reproduced in R
-([`docs/validation_r/`](docs/validation_r/replication.Rmd)).
+([`docs/validation_r/`](docs/validation_r/replication.Rmd)). LightGBM is the champion,
+promoted over XGBoost on validation ([decisions D-011](docs/decisions.md)).
+
+**Features:** the model sees **436 columns — 415 raw** IEEE-CIS fields (400 numeric + 15
+categorical) plus **21 engineered** (9 per-transaction transforms + 12 **strict-past
+causal aggregates** per card / email / address). The 21 engineered features are the ones
+the causality tests guard; the raw `V*`/`id_*` fields are anonymized and used as-is.
 
 ## Read the work
 

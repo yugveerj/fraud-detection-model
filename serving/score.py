@@ -2,8 +2,8 @@
 
 A single transaction has no entity history, so ``build_features`` yields first-sighting
 causal aggregates (count 0) — correct for a novel transaction. SHAP is computed on the
-base XGBoost via a TreeExplainer built once at init (fast for trees); the calibrated
-model supplies the displayed probability.
+base gradient-boosted model (LightGBM) via a TreeExplainer built once at init (fast for
+trees); the calibrated model supplies the displayed probability.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def build_feature_row(payload: dict) -> pd.DataFrame:
 
 
 def build_explainer(base_pipeline):
-    """Build a TreeExplainer on the base XGBoost once (reused across requests)."""
+    """Build a TreeExplainer on the base gradient-boosted model once (reused per request)."""
     import shap
 
     return shap.TreeExplainer(base_pipeline.named_steps["est"])

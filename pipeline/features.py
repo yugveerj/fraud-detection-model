@@ -29,6 +29,22 @@ SECONDS_PER_DAY = 86400
 # Names of the aggregate statistics produced per entity.
 AGG_STATS = ["prior_count", "prior_amt_mean", "prior_amt_std", "recency"]
 
+# The engineered row-local transforms added by ``add_base_features`` (kept in sync with
+# it; asserted by tests/test_schema_and_features.py). Used for the raw-vs-engineered count
+# breakdown in docs/experiments.md. The rest of the model's columns are raw IEEE-CIS
+# fields; the strictly-past entity aggregates are named by ``causal_feature_names``.
+BASE_FEATURES = [
+    "amt_log",
+    "amt_cents",
+    "amt_is_round",
+    "dt_day",
+    "dt_hour",
+    "dt_dow",
+    "dt_is_night",
+    "dt_hour_sin",
+    "dt_hour_cos",
+]
+
 
 # ---------------------------------------------------------------- base features
 

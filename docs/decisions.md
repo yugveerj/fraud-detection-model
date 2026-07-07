@@ -1,5 +1,61 @@
 # Decisions log
 
+## D-012 — Deployed region us-east-2 (spec named us-west-2); billing alarms in us-east-1
+The live deploy targets **us-east-2** (Ohio) — the region of the owner's AWS account
+(740204038375) — not the spec §5 / project-2 region **us-west-2**. Chosen to match the
+account's existing footprint at deploy time. Independent of this, the CloudWatch
+**billing alarms live in us-east-1** (D-007): the `AWS/Billing EstimatedCharges` metric
+is only published there, via the aliased provider in `infra/providers.tf`. Cross-repo
+note (out of scope here): project 2's deploy should either align on a region or record
+the divergence when it next lands — that change belongs to the other repo.
+
+## D-011 — LightGBM promoted over XGBoost (G1 work order)
+The registered champion was XGBoost (spec §3.5 named it a priori), but LightGBM led on
+VALIDATION. Applying the G1 rule (calibrate both with the a-priori method — isotonic —
+on VAL; promote iff calibrated-VAL PR-AUC gap ≥ 0.010 absolute):
+
+| isotonic-calibrated (real data) | VAL PR-AUC | holdout PR-AUC | VAL Brier |
+| --- | --- | --- | --- |
+| XGBoost | 0.6012 | 0.4631 | 0.02301 |
+| **LightGBM** | **0.6118** | 0.4642 | 0.02249 |
+| Δ (lgbm − xgb) | **+0.0106** | +0.0011 | −0.0005 |
+
+The calibrated-VAL gap **+0.0106 clears the 0.010 bar** (calibration compressed it from
+the base +0.015 — isotonic's tie penalty, D-009, hits LightGBM slightly harder), and
+LightGBM also wins VAL Brier and edges holdout. **Promoted.** `modeling.PRODUCTION_MODEL
+= "lightgbm"` now drives train/evaluate/serving/monitoring; XGBoost + LightGBM stay in
+the grid for the leakage comparison. All downstream artifacts regenerated on real data;
+the isotonic-calibrated LightGBM is the registered champion, the Platt-calibrated
+LightGBM the registered challenger (G4). Serving image adds `libgomp` (LightGBM's
+OpenMP runtime, not bundled in its wheel) and swaps xgboost→lightgbm in requirements.
+
+## D-013 — Monitoring retuned for real volume (G5.2)
+The small-sample **floors** (PSI min-30 non-null; value-capture breach needs ≥4
+frauds/batch) are retained unchanged — on real volume (~7.4k rows / ~250 frauds per week)
+they are inert, which is their intent: suppress small-sample noise, protect a sparse week
+or the synthetic fixture. But replaying the **real** holdout exposed two ways the breach
+logic cried wolf *every* week (a first-pass "no change needed" call was wrong); both fixed:
+
+1. **Calendar-position features excluded from drift PSI.** `dt_day` (absolute day index)
+   and `dt_dow` (day-of-week) encode *when a batch falls on the clock*, not the transaction
+   population. A replay "week" spans only ~2 real days (147k holdout / 20 batches), so it
+   never samples the day axis representatively against the multi-month train+val reference
+   — `dt_day`/`dt_dow` showed PSI 3–7 and breached every week. Excluded on the same
+   rationale as the `ent_*` aggregates (structural, not drift). Intra-day timing
+   (`dt_hour`, its cyclic encodings, `dt_is_night`) is well-sampled in a short batch and
+   is kept.
+2. **Value-capture baseline set to the out-of-time norm (0.478), not the VAL-optimal
+   (0.611).** The deployed model runs at its characterized out-of-time level (§4.3 gap), so
+   comparing each week to the VAL rate breached on the *known* gap every week. Anchored to
+   the holdout norm, the guard now fires only on **new** degradation: over the first six
+   weeks it stays quiet on the two weeks that beat the norm and flags the genuinely weak
+   ones (11–19% down) — the signal §7 escalates to retraining.
+
+Genuine time-correlated input drift (the raw `D1`/`D15` timedelta features) still breaches
+on the weeks it actually occurs, deduped onto one issue — that is real drift, not noise.
+
+
+
 ## D-010 — Ran on real IEEE-CIS data (owner supplied Kaggle token)
 The owner provided a Kaggle API token (new `KGAT_` access-token format;
 `kaggle` client 2.2.3 reads `~/.kaggle/access_token`) and accepted the competition
@@ -8,12 +64,14 @@ whole pipeline was re-run on real data. Every committed artifact
 (experiments.md, decision_report, figures, manifest, EDA notebook, validation report,
 model card, README, R replication) now reports **real** numbers; the synthetic framing
 is removed. Raw data, `holdout_scores.csv`, and the monitoring `site/` stay gitignored.
-Headline real results: leakage inflation **+17% (XGBoost) / +23% (LightGBM)** temporal
-vs random-CV (logreg −6%); holdout **PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024** (0.071
-uncalibrated — calibration is clearly material on real data); operating point captures
-**47.5% of fraud value at 3.44% FPR** for ≈ $125k net / 100k. R effective-challenge
-reconciled all metrics exactly on the 148k-row real holdout. The synthetic fixture is
-retained as the CI/test fallback (D-006 tuning still applies to it).
+Headline real results *as of this entry, when XGBoost was still the champion*
+(**superseded by the LightGBM champion in D-011** — see the validation report / README for
+current figures): leakage inflation **+17% (XGBoost) / +23% (LightGBM)** temporal vs
+random-CV (logreg −6%); XGBoost holdout **PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024**
+(0.071 uncalibrated — calibration is clearly material on real data); XGBoost operating
+point captures **47.5% of fraud value at 3.44% FPR** for ≈ $125k net / 100k. R
+effective-challenge reconciled all metrics exactly on the 148k-row real holdout. The
+synthetic fixture is retained as the CI/test fallback (D-006 tuning still applies to it).
 
 
 
@@ -21,14 +79,18 @@ Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 
 ## D-009 — R replication surfaced (and reconciled) two tie-handling discrepancies (Phase F)
-The independent R "effective challenge" ([docs/validation_r/replication.Rmd]) initially
-disagreed with the Python holdout metrics: PR-AUC R 0.337 vs Python 0.308, and ROC-AUC
-off too. Root cause: isotonic calibration produces large **tied-probability** blocks, and
-naive per-row precision/recall (and per-row trapezoidal ROC) mishandle ties. Fixes:
-tie-aware average precision (collapse to distinct thresholds, matching sklearn) and
-rank-based Mann-Whitney ROC-AUC. Both then reconcile exactly (0.3080, 0.9092); Brier and
-value-capture matched from the start. Documented as a findings note in the Rmd — exactly
-the subtle metric-definition issue an independent challenge is meant to catch. Also:
+The independent R "effective challenge"
+([docs/validation_r/replication.Rmd](validation_r/replication.Rmd)) initially disagreed
+with the Python holdout metrics: a naive per-row R average precision gave PR-AUC 0.4753 vs
+Python 0.4642, and per-row trapezoidal ROC-AUC was off too. Root cause: isotonic
+calibration produces large **tied-probability** blocks, and naive per-row precision/recall
+(and per-row trapezoidal ROC) mishandle ties. Fixes: tie-aware average precision (collapse
+to distinct thresholds, matching sklearn) and rank-based Mann-Whitney ROC-AUC. Both then
+reconcile exactly (PR-AUC 0.4642, ROC-AUC 0.8788); Brier and value-capture matched from
+the start. On the LightGBM champion the naive-AP gap (0.011) **exceeds** the 0.01
+reconciliation tolerance, so the tie fix is essential here, not cosmetic. Documented as a
+findings note in the Rmd — exactly the subtle metric-definition issue an independent
+challenge is meant to catch. Also:
 `holdout_scores.csv` (id/label/proba/amount) is gitignored so real transaction rows are
 never committed; only the rendered `replication.html` (with results) enters the repo.
 

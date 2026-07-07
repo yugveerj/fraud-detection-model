@@ -4,6 +4,9 @@
 #   docker build -t fraud-scoring .
 FROM public.ecr.aws/lambda/python:3.12
 
+# lightgbm needs the OpenMP runtime at import (its wheel does not bundle libgomp).
+RUN dnf install -y libgomp && dnf clean all
+
 # Dependencies first (cached across code changes).
 COPY serving/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

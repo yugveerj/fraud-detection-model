@@ -1,6 +1,6 @@
 """Build the serving bundle + demo presets (SPEC Section 5).
 
-Trains the base XGBoost, calibrates (isotonic) on VAL, freezes the operating point,
+Trains the base gradient-boosted model, calibrates (isotonic) on VAL, freezes the operating point,
 registers the calibrated model in MLflow (for the version + run id ``/healthz``
 reports), and writes:
 
@@ -49,7 +49,9 @@ def build(source: str = "auto", profile: str = "full", review_cost: float = 25.0
     y_tr = sp.train[schema.TARGET].to_numpy()
     y_val = sp.val[schema.TARGET].to_numpy()
 
-    base = modeling.make_model("xgboost", y_train=y_tr, profile=profile).fit(sp.train, y_tr)
+    base = modeling.make_model(modeling.PRODUCTION_MODEL, y_train=y_tr, profile=profile).fit(
+        sp.train, y_tr
+    )
     cal = modeling.calibrate(base, sp.val, y_val, method="isotonic")
     op = decisions.optimize_operating_point(
         y_val, cal.predict_proba(sp.val)[:, 1], sp.val[schema.AMT_COL].to_numpy(), review_cost

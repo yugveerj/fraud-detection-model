@@ -1,7 +1,8 @@
 # Experiment grid
 
 - **Provenance:** real  ·  **profile:** full
-- **Feature counts:** 421 numeric + 15 categorical
+- **Feature counts:** 421 numeric + 15 categorical = **436 model features**.
+- **Raw vs engineered:** 415 raw IEEE-CIS columns + 21 engineered (9 per-transaction base transforms + 12 strict-past causal aggregates). The engineered features are the ones the causality tests guard; raw `V*`/`id_*` fields are anonymized and used as-is.
 - **Tracking:** MLflow (SQLite backend); registered model + version below.
 
 ## Temporal segmentation
@@ -35,20 +36,19 @@ Same features, same model, two validation protocols. Random k-fold CV ignores ti
 | xgboost | 0.6057 | 0.7105 | +0.1049 | +17.3% |
 | lightgbm | 0.6207 | 0.7646 | +0.1439 | +23.2% |
 
-## Calibration (XGBoost) — fit on VAL, assessed on VAL and HOLDOUT
+## Calibration (lightgbm) — fit on VAL, assessed on VAL and HOLDOUT
 
 Isotonic (default) and Platt calibration maps are fit on VALIDATION. Under class imbalance the Brier score is dominated by the rare-positive base rate and is a weak calibration diagnostic; the reliability curves (decision report) are the real check. Where VAL improves but HOLDOUT does not, that gap is **calibration drift** — a monitoring/recalibration trigger (validation report Section 7).
 
 | method | val Brier | holdout Brier | holdout PR-AUC |
 | --- | --- | --- | --- |
-| none | 0.07140 | 0.07143 | 0.4711 |
-| isotonic | 0.02301 | 0.02357 | 0.4631 |
-| platt | 0.02389 | 0.02427 | 0.4711 |
+| none | 0.05220 | 0.05236 | 0.4789 |
+| isotonic | 0.02249 | 0.02347 | 0.4642 |
+| platt | 0.02330 | 0.02409 | 0.4789 |
 
 ## Registered model
 
-- **Name:** `fraud-scoring`  ·  **version:** `1`
-- **Run id:** `0f5d0e01786b4bfb84a86208fe5e45ff`  ·  **calibration:** isotonic
-- **URI:** `models:/m-f32c0bc131534addb426d77a6f751c71`
+- **Champion:** `fraud-scoring` v`2` — isotonic-calibrated **lightgbm** (run `79f0f88354444c0ba8a964c95344123c`).
+- **Challenger:** `fraud-scoring-challenger` v`1` — Platt-calibrated lightgbm (run `f15083412f1a4ddf923a6e13a5003cac`), registered for the champion/challenger protocol (validation report Section 7); not served.
 
-The registered model is the isotonic-calibrated XGBoost. Its version and run id travel with the serving artifact and are reported by `/healthz` (Phase D).
+The champion's version + run id travel with the serving artifact and are reported by `/healthz`. LightGBM was promoted over XGBoost on VALIDATION (docs/decisions D-011).
