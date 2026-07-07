@@ -46,7 +46,9 @@ def run_report(source: str = "auto", review_cost: float = 25.0, profile: str = "
     amt_val = sp.val[schema.AMT_COL].to_numpy()
     amt_hold = sp.holdout[schema.AMT_COL].to_numpy()
 
-    base = modeling.make_model("xgboost", y_train=y_tr, profile=profile).fit(sp.train, y_tr)
+    base = modeling.make_model(modeling.PRODUCTION_MODEL, y_train=y_tr, profile=profile).fit(
+        sp.train, y_tr
+    )
     cal = modeling.calibrate(base, sp.val, y_val, method="isotonic")
     p_val = cal.predict_proba(sp.val)[:, 1]
     p_hold = cal.predict_proba(sp.holdout)[:, 1]
@@ -60,6 +62,9 @@ def run_report(source: str = "auto", review_cost: float = 25.0, profile: str = "
     statement = decisions.operating_point_statement(hold_stats, ds.provenance)
     sensitivity = decisions.sensitivity_table(y_val, p_val, amt_val)
     hold_metrics = metrics.evaluate(y_hold, p_hold)
+    # Platt is rank-preserving, so its PR-AUC equals the raw base model's — one number
+    # captures the ranking cost isotonic pays for its tie-blocks (§4 tradeoff note).
+    base_pr_auc = metrics.evaluate(y_hold, p_hold_base).pr_auc
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     _fig_value_capture(y_hold, p_hold, amt_hold, review_cost, op, hold_stats)
@@ -70,7 +75,16 @@ def run_report(source: str = "auto", review_cost: float = 25.0, profile: str = "
     _export_holdout_scores(sp.holdout, y_hold, p_hold, amt_hold)
 
     report = _render_report(
-        ds.provenance, review_cost, sp, op, hold_stats, statement, sensitivity, hold_metrics, cases
+        ds.provenance,
+        review_cost,
+        sp,
+        op,
+        hold_stats,
+        statement,
+        sensitivity,
+        hold_metrics,
+        cases,
+        base_pr_auc,
     )
     REPORT_PATH.write_text(report, encoding="utf-8")
 
@@ -160,7 +174,7 @@ def _shap_section(base, X_hold, p_hold, y_hold, amt_hold, threshold):
 
     fig = plt.figure(figsize=(8, 6))
     shap.summary_plot(sv, Xt, feature_names=names, plot_type="bar", show=False, max_display=20)
-    plt.title("SHAP global importance (mean |value|) — base XGBoost")
+    plt.title("SHAP global importance (mean |value|) — base gradient-boosted model")
     _save(fig, "shap_global_bar.png")
 
     fig = plt.figure(figsize=(8, 6))
@@ -188,7 +202,9 @@ def _shap_section(base, X_hold, p_hold, y_hold, amt_hold, threshold):
 # ------------------------------------------------------------------- report
 
 
-def _render_report(prov, review_cost, sp, op, hold, statement, sensitivity, hold_metrics, cases):
+def _render_report(
+    prov, review_cost, sp, op, hold, statement, sensitivity, hold_metrics, cases, base_pr_auc
+):
     synth = prov != "real"
     lines = ["# Decision report — is this model worth operating?", ""]
     if synth:
@@ -259,11 +275,20 @@ def _render_report(prov, review_cost, sp, op, hold, statement, sensitivity, hold
         "Isotonic calibration corrects the probability *level* the dollar thresholds depend "
         "on. Where the holdout curve departs from validation, that is calibration drift.",
         "",
+        f"**Method tradeoff.** Isotonic is not free on ranking: it scores holdout PR-AUC "
+        f"**{hold_metrics.pr_auc:.4f}** versus **{base_pr_auc:.4f}** for the rank-preserving "
+        "alternatives (the raw model and Platt scaling), because its step function ties large "
+        "blocks of transactions and PR-AUC penalises the ambiguous within-tie ordering. "
+        "Isotonic is kept as champion anyway — it wins Brier and the reliability the dollar "
+        "layer needs, and the operating point is chosen on *value*, not raw ranking — while "
+        "the Platt-calibrated model is registered as the named challenger so the choice stays "
+        "auditable (validation report Section 7).",
+        "",
         "![reliability](figures/reliability.png)",
         "",
         "## 5. Feature attribution (SHAP)",
         "",
-        "Global importance on the base XGBoost (TreeExplainer). **Caveat:** many inputs are "
+        "Global importance on the base gradient-boosted model (TreeExplainer). **Caveat:** many inputs are "
         "anonymized Vesta `V*` / `id_*` features with no published meaning, so SHAP shows "
         "*which engineered inputs* move a score, not a mechanistic business reason.",
         "",

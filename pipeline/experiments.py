@@ -2,7 +2,7 @@
 
 Runs LR / XGBoost / LightGBM under two protocols — the honest **temporal** split and
 a 5-fold **random CV** (the leakage anti-pattern, labelled as such) — quantifying the
-optimism the random protocol buys. Calibrates the XGBoost model (isotonic vs Platt) on
+optimism the random protocol buys. Calibrates the production GBM (isotonic vs Platt) on
 VALIDATION and reports Brier/reliability on HOLDOUT. Registers the calibrated XGBoost.
 
 Every run is logged to a local MLflow tracking store; the grid is exported to
@@ -20,7 +20,7 @@ import mlflow
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
 
 from pipeline import data as data_mod
-from pipeline import encoders, metrics, modeling, schema
+from pipeline import encoders, features, metrics, modeling, schema
 
 warnings.filterwarnings("ignore")
 
@@ -41,10 +41,11 @@ class GridResult:
     cells: list[dict] = field(default_factory=list)  # per (model, protocol)
     calibration: list[dict] = field(default_factory=list)
     leakage: list[dict] = field(default_factory=list)
-    registry: dict = field(default_factory=dict)
+    registry: dict = field(default_factory=dict)  # champion
+    challenger: dict = field(default_factory=dict)  # Platt-calibrated challenger (G4)
     split_summary: list[dict] = field(default_factory=list)
     feature_counts: dict = field(default_factory=dict)
-    model: object = None  # fitted calibrated XGBoost (isotonic) — the serving model
+    model: object = None  # fitted isotonic-calibrated production model — the serving model
     feature_columns: dict = field(default_factory=dict)  # {numeric: [...], categorical: [...]}
 
 
@@ -140,13 +141,14 @@ def run_grid(
             }
         )
 
-    # --- Calibration of the XGBoost model on VAL, assessed on VAL (in-distribution)
+    # --- Calibration of the PRODUCTION model on VAL, assessed on VAL (in-distribution)
     #     and HOLDOUT. Reporting both exposes calibration drift honestly; the
     #     registered method is the a-priori default (isotonic), never chosen by
     #     peeking at holdout (that would leak the test set into model selection). ---
-    xgb = fitted_temporal["xgboost"]
-    base_val = metrics.evaluate(y_val, modeling.positive_proba(xgb, sp.val))
-    base_hold = metrics.evaluate(y_hold, modeling.positive_proba(xgb, sp.holdout))
+    prod_name = modeling.PRODUCTION_MODEL
+    prod = fitted_temporal[prod_name]
+    base_val = metrics.evaluate(y_val, modeling.positive_proba(prod, sp.val))
+    base_hold = metrics.evaluate(y_hold, modeling.positive_proba(prod, sp.holdout))
     result.calibration.append(
         {
             "method": "none",
@@ -157,13 +159,13 @@ def run_grid(
     )
     cal_models = {}
     for label, sk_method in CALIBRATION_METHODS.items():
-        cal = modeling.calibrate(xgb, sp.val, y_val, method=sk_method)
+        cal = modeling.calibrate(prod, sp.val, y_val, method=sk_method)
         cal_models[label] = cal
         val_brier = metrics.evaluate(y_val, cal.predict_proba(sp.val)[:, 1]).brier
         cal_hold = metrics.evaluate(y_hold, cal.predict_proba(sp.holdout)[:, 1])
         _log_run(
-            f"xgboost-calibrated-{label}",
-            {"model": "xgboost", "protocol": "temporal", "calibration": label},
+            f"{prod_name}-calibrated-{label}",
+            {"model": prod_name, "protocol": "temporal", "calibration": label},
             {
                 "val_brier": val_brier,
                 "holdout_brier": cal_hold.brier,
@@ -179,10 +181,24 @@ def run_grid(
             }
         )
 
-    # --- Register the calibrated XGBoost (isotonic = SPEC default). ---
-    result.model = cal_models["isotonic"]
+    # --- Register the isotonic-calibrated production model (champion) + the
+    #     Platt-calibrated variant as the named challenger (G4). ---
+    result.model = cal_models[modeling.CHAMPION_CALIBRATION]
     if register:
-        result.registry = _register(cal_models["isotonic"], "isotonic", ds.provenance, profile)
+        result.registry = _register(
+            cal_models[modeling.CHAMPION_CALIBRATION],
+            modeling.CHAMPION_CALIBRATION,
+            ds.provenance,
+            profile,
+            role="champion",
+        )
+        result.challenger = _register(
+            cal_models[modeling.CHALLENGER_CALIBRATION],
+            "platt",
+            ds.provenance,
+            profile,
+            role="challenger",
+        )
 
     return result
 
@@ -215,32 +231,33 @@ def _log_run(run_name: str, tags: dict, metrics_dict: dict) -> str:
         return run.info.run_id
 
 
-def _register(model, method: str, provenance: str, profile: str) -> dict:
-    with mlflow.start_run(run_name="register-calibrated-xgboost") as run:
+def _register(model, method: str, provenance: str, profile: str, role: str = "champion") -> dict:
+    name = REGISTERED_MODEL if role == "champion" else f"{REGISTERED_MODEL}-challenger"
+    with mlflow.start_run(run_name=f"register-{role}-{modeling.PRODUCTION_MODEL}") as run:
         mlflow.set_tags(
             {
-                "model": "xgboost",
+                "model": modeling.PRODUCTION_MODEL,
                 "calibration": method,
                 "provenance": provenance,
                 "profile": profile,
-                "role": "registered-production-candidate",
+                "role": role,
             }
         )
         # cloudpickle (not the newer skops serializer) — our pipeline wraps a custom
-        # transformer + XGBoost booster that skops will not trust by default.
+        # transformer + a GBM booster that skops will not trust by default.
         info = mlflow.sklearn.log_model(
             model,
             name="model",
-            registered_model_name=REGISTERED_MODEL,
+            registered_model_name=name,
             serialization_format="cloudpickle",
         )
         run_id = run.info.run_id
-    version = _latest_version(REGISTERED_MODEL)
     return {
-        "registered_model": REGISTERED_MODEL,
-        "version": version,
+        "registered_model": name,
+        "version": _latest_version(name),
         "run_id": run_id,
         "calibration": method,
+        "role": role,
         "model_uri": info.model_uri,
     }
 
@@ -255,10 +272,21 @@ def render_experiments_md(r: GridResult) -> str:
             "IEEE-CIS data with `uv run python -m pipeline.train --full`.",
             "",
         ]
+    numeric_cols = r.feature_columns.get("numeric", [])
+    n_num = r.feature_counts.get("numeric", len(numeric_cols))
+    n_cat = r.feature_counts.get("categorical", 0)
+    n_base = sum(c in set(features.BASE_FEATURES) for c in numeric_cols)
+    n_agg = sum(c.startswith("ent_") for c in numeric_cols)
+    n_eng = n_base + n_agg
+    n_raw = (n_num + n_cat) - n_eng
     lines += [
         f"- **Provenance:** {r.provenance}  ·  **profile:** {r.profile}",
-        f"- **Feature counts:** {r.feature_counts.get('numeric', '?')} numeric + "
-        f"{r.feature_counts.get('categorical', '?')} categorical",
+        f"- **Feature counts:** {n_num} numeric + {n_cat} categorical = "
+        f"**{n_num + n_cat} model features**.",
+        f"- **Raw vs engineered:** {n_raw} raw IEEE-CIS columns + {n_eng} engineered "
+        f"({n_base} per-transaction base transforms + {n_agg} strict-past causal "
+        "aggregates). The engineered features are the ones the causality tests guard; raw "
+        "`V*`/`id_*` fields are anonymized and used as-is.",
         "- **Tracking:** MLflow (SQLite backend); registered model + version below.",
         "",
         "## Temporal segmentation",
@@ -313,7 +341,7 @@ def render_experiments_md(r: GridResult) -> str:
 
     lines += [
         "",
-        "## Calibration (XGBoost) — fit on VAL, assessed on VAL and HOLDOUT",
+        f"## Calibration ({modeling.PRODUCTION_MODEL}) — fit on VAL, assessed on VAL and HOLDOUT",
         "",
         "Isotonic (default) and Platt calibration maps are fit on VALIDATION. Under "
         "class imbalance the Brier score is dominated by the rare-positive base rate and "
@@ -332,18 +360,22 @@ def render_experiments_md(r: GridResult) -> str:
         )
 
     reg = r.registry
+    ch = r.challenger
     lines += [
         "",
         "## Registered model",
         "",
-        f"- **Name:** `{reg.get('registered_model', REGISTERED_MODEL)}`  ·  "
-        f"**version:** `{reg.get('version', '—')}`",
-        f"- **Run id:** `{reg.get('run_id', '—')}`  ·  **calibration:** "
-        f"{reg.get('calibration', 'isotonic')}",
-        f"- **URI:** `{reg.get('model_uri', '—')}`",
+        f"- **Champion:** `{reg.get('registered_model', REGISTERED_MODEL)}` v"
+        f"`{reg.get('version', '—')}` — isotonic-calibrated **{modeling.PRODUCTION_MODEL}** "
+        f"(run `{reg.get('run_id', '—')}`).",
+        f"- **Challenger:** `{ch.get('registered_model', '—')}` v`{ch.get('version', '—')}` — "
+        f"Platt-calibrated {modeling.PRODUCTION_MODEL} (run `{ch.get('run_id', '—')}`), "
+        "registered for the champion/challenger protocol (validation report Section 7); "
+        "not served.",
         "",
-        "The registered model is the isotonic-calibrated XGBoost. Its version and run id "
-        "travel with the serving artifact and are reported by `/healthz` (Phase D).",
+        "The champion's version + run id travel with the serving artifact and are reported "
+        "by `/healthz`. LightGBM was promoted over XGBoost on VALIDATION (docs/decisions "
+        "D-011).",
         "",
     ]
     return "\n".join(lines)

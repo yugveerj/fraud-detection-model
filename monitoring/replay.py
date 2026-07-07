@@ -60,7 +60,9 @@ def prepare(
     y_tr = sp.train[schema.TARGET].to_numpy()
     y_val = sp.val[schema.TARGET].to_numpy()
 
-    base = modeling.make_model("xgboost", y_train=y_tr, profile=profile).fit(sp.train, y_tr)
+    base = modeling.make_model(modeling.PRODUCTION_MODEL, y_train=y_tr, profile=profile).fit(
+        sp.train, y_tr
+    )
     cal = modeling.calibrate(base, sp.val, y_val, method="isotonic")
     p_val = cal.predict_proba(sp.val)[:, 1]
     op = decisions.optimize_operating_point(
@@ -263,6 +265,20 @@ Evidently + PSI drift and label performance. Breach rule: PSI &gt; 0.2, Evidentl
 drift, or value-capture down &gt;10% vs baseline → a GitHub Issue is opened.</p>
 <table><tr><th>week</th><th>rows</th><th>fraud rate</th><th>PR-AUC</th>
 <th>value capture</th><th>max PSI</th><th>status</th></tr>{rows}</table>
+<h2>Methodology</h2>
+<ul class=meta>
+<li><b>PSI on dense inputs + the score distribution only.</b> Sparse block-NaN Vesta
+<code>V*</code>/<code>id_*</code> features are excluded — their PSI is small-sample NaN noise,
+not drift (D-008).</li>
+<li><b>Causal aggregates (<code>ent_*</code>) are excluded from drift PSI.</b>
+Expanding-window counts/recency grow <i>structurally</i> as an entity accumulates history,
+so their shift reflects the design, not data/concept drift.</li>
+<li><b>Cadence:</b> one simulated week (of <code>TransactionDT</code>) per scheduled run;
+the stream freezes with a final report when exhausted.</li>
+<li><b>Replay + label lag:</b> a replayed simulation on a static dataset (banner above).
+This replay has labels immediately; in production fraud labels arrive <i>weeks late</i>, so
+live monitoring watches input + score drift, not just outcomes.</li>
+</ul>
 """
 
 

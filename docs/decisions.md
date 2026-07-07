@@ -1,5 +1,44 @@
 # Decisions log
 
+## D-012 — Deployed region us-east-2 (spec named us-west-2); billing alarms in us-east-1
+The live deploy targets **us-east-2** (Ohio) — the region of the owner's AWS account
+(740204038375) — not the spec §5 / project-2 region **us-west-2**. Chosen to match the
+account's existing footprint at deploy time. Independent of this, the CloudWatch
+**billing alarms live in us-east-1** (D-007): the `AWS/Billing EstimatedCharges` metric
+is only published there, via the aliased provider in `infra/providers.tf`. Cross-repo
+note (out of scope here): project 2's deploy should either align on a region or record
+the divergence when it next lands — that change belongs to the other repo.
+
+## D-011 — LightGBM promoted over XGBoost (G1 work order)
+The registered champion was XGBoost (spec §3.5 named it a priori), but LightGBM led on
+VALIDATION. Applying the G1 rule (calibrate both with the a-priori method — isotonic —
+on VAL; promote iff calibrated-VAL PR-AUC gap ≥ 0.010 absolute):
+
+| isotonic-calibrated (real data) | VAL PR-AUC | holdout PR-AUC | VAL Brier |
+| --- | --- | --- | --- |
+| XGBoost | 0.6012 | 0.4631 | 0.02301 |
+| **LightGBM** | **0.6118** | 0.4642 | 0.02249 |
+| Δ (lgbm − xgb) | **+0.0106** | +0.0011 | −0.0005 |
+
+The calibrated-VAL gap **+0.0106 clears the 0.010 bar** (calibration compressed it from
+the base +0.015 — isotonic's tie penalty, D-009, hits LightGBM slightly harder), and
+LightGBM also wins VAL Brier and edges holdout. **Promoted.** `modeling.PRODUCTION_MODEL
+= "lightgbm"` now drives train/evaluate/serving/monitoring; XGBoost + LightGBM stay in
+the grid for the leakage comparison. All downstream artifacts regenerated on real data;
+the isotonic-calibrated LightGBM is the registered champion, the Platt-calibrated
+LightGBM the registered challenger (G4). Serving image adds `libgomp` (LightGBM's
+OpenMP runtime, not bundled in its wheel) and swaps xgboost→lightgbm in requirements.
+
+## D-013 — Monitoring guards retained as small-sample floors (G5.2)
+The D-008 guards (PSI min-30 non-null; value-capture breach needs ≥4 frauds/batch) were
+tuned on the ~125-row/week synthetic fixture. Real replay is ~7.4k rows / ~250 frauds
+per week, where both guards are **inert (always satisfied)** — which is their intent:
+they suppress small-sample noise and do nothing when the sample is ample. **Retained
+unchanged** so any genuinely low-volume slice (a sparse week, the synthetic fixture)
+stays protected; no change needed for real volume.
+
+
+
 ## D-010 — Ran on real IEEE-CIS data (owner supplied Kaggle token)
 The owner provided a Kaggle API token (new `KGAT_` access-token format;
 `kaggle` client 2.2.3 reads `~/.kaggle/access_token`) and accepted the competition
@@ -8,12 +47,14 @@ whole pipeline was re-run on real data. Every committed artifact
 (experiments.md, decision_report, figures, manifest, EDA notebook, validation report,
 model card, README, R replication) now reports **real** numbers; the synthetic framing
 is removed. Raw data, `holdout_scores.csv`, and the monitoring `site/` stay gitignored.
-Headline real results: leakage inflation **+17% (XGBoost) / +23% (LightGBM)** temporal
-vs random-CV (logreg −6%); holdout **PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024** (0.071
-uncalibrated — calibration is clearly material on real data); operating point captures
-**47.5% of fraud value at 3.44% FPR** for ≈ $125k net / 100k. R effective-challenge
-reconciled all metrics exactly on the 148k-row real holdout. The synthetic fixture is
-retained as the CI/test fallback (D-006 tuning still applies to it).
+Headline real results *as of this entry, when XGBoost was still the champion*
+(**superseded by the LightGBM champion in D-011** — see the validation report / README for
+current figures): leakage inflation **+17% (XGBoost) / +23% (LightGBM)** temporal vs
+random-CV (logreg −6%); XGBoost holdout **PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024**
+(0.071 uncalibrated — calibration is clearly material on real data); XGBoost operating
+point captures **47.5% of fraud value at 3.44% FPR** for ≈ $125k net / 100k. R
+effective-challenge reconciled all metrics exactly on the 148k-row real holdout. The
+synthetic fixture is retained as the CI/test fallback (D-006 tuning still applies to it).
 
 
 

@@ -1,6 +1,6 @@
 """SHAP explainability (SPEC Section 4).
 
-Explanations are computed on the **base XGBoost** (a fast, exact TreeExplainer). The
+Explanations are computed on the **base gradient-boosted model** (a fast, exact TreeExplainer). The
 calibration step is a monotonic transform of the score, so tree SHAP values explain
 the ranking the decision uses. Three case studies (fraud / legit / borderline) drawn
 from HOLDOUT become the demo presets (Phase D).
