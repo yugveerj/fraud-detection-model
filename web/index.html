@@ -3,55 +3,55 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fraud scoring — model decision worksheet</title>
+    <title>Fraud scoring — model decision &amp; validation record</title>
     <meta
       name="description"
-      content="A calibrated fraud-detection model turns a probability into a review/approve decision at a frozen, dollar-optimized threshold. Non-production demonstration on the public IEEE-CIS dataset."
+      content="A calibrated fraud-detection model turns a probability into a review/approve decision at a frozen, dollar-optimized threshold — with the validation evidence behind it. Non-production demonstration on the public IEEE-CIS dataset."
     />
-    <link rel="preload" href="fonts/plex-mono-600.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/archivo-800.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/plex-mono-600.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main class="sheet">
+    <main class="doc">
       <!-- ── masthead ─────────────────────────────────────────────── -->
       <header class="masthead">
-        <div class="masthead-top">
-          <div class="ident">
-            <span class="ident-mark">Fraud&#8209;Scoring</span>
-            <span class="ident-sub">model decision worksheet</span>
+        <div class="mast-row">
+          <div class="mast-id">
+            <h1 class="mast-title">Fraud&#8209;Scoring</h1>
+            <p class="mast-sub">Model decision &amp; validation record</p>
           </div>
           <span class="status">Non&#8209;production</span>
         </div>
-        <dl class="fields" id="fields"><!-- model / registry / calibration / basis injected --></dl>
+        <dl class="fields" id="fields"><!-- model / registry / calibration / basis --></dl>
       </header>
 
       <!-- ── summary of results ───────────────────────────────────── -->
-      <section class="block">
+      <section class="sect">
         <h2 class="eyebrow"><span>Summary of results</span></h2>
-        <ol class="ledger" id="stats"><!-- injected from metrics.json --></ol>
+        <ol class="kpis" id="stats"><!-- injected from metrics.json --></ol>
         <p class="note" id="results-note">
           Isotonic-calibrated LightGBM, validated <strong>temporally</strong>; the operating
-          point is frozen on validation and reported on a held-out future slice. Objective:
-          decision quality and validation rigor — not leaderboard AUC.
+          point is frozen on validation and reported on a held-out future slice. The
+          objective is decision quality and validation rigor — not leaderboard AUC.
         </p>
       </section>
 
-      <!-- ── the decision (signature) ─────────────────────────────── -->
-      <section class="block">
+      <!-- ── the decision (interactive) ───────────────────────────── -->
+      <section class="sect">
         <h2 class="eyebrow"><span>The decision</span></h2>
         <p class="lede">
-          A calibrated probability meets a frozen, dollar-optimized <em>review threshold</em>,
-          drawn below as a control limit. Select a transaction — where it lands is the decision.
+          A calibrated probability meets a frozen, dollar-optimized <em>review threshold</em>.
+          Select a transaction — where it lands against the threshold is the decision.
         </p>
 
-        <div class="chips" id="chips" role="group" aria-label="Example transactions">
-          <!-- preset chips injected -->
-        </div>
+        <div class="record" id="record"><!-- frozen operating point injected --></div>
+
+        <div class="chips" id="chips" role="group" aria-label="Example transactions"></div>
 
         <figure class="gauge">
           <div class="gauge-scale" id="gauge-scale">
-            <div class="gauge-zone gauge-zone-flag" id="gauge-flag" aria-hidden="true"></div>
+            <div class="gauge-zone-flag" id="gauge-flag" aria-hidden="true"></div>
             <div class="gauge-limit" id="gauge-limit" aria-hidden="true">
               <span class="gauge-limit-tag" id="gauge-limit-tag">review threshold</span>
             </div>
@@ -70,10 +70,9 @@
             <span class="stamp" id="verdict-stamp">—</span>
             <span class="verdict-line" id="verdict-line"></span>
           </div>
-
           <div class="factors">
-            <h3 class="eyebrow eyebrow-sm"><span>Contributions to the score</span></h3>
-            <ul class="bars" id="bars"><!-- SHAP diverging bars injected --></ul>
+            <h3 class="micro">Contributions to the score</h3>
+            <ul class="bars" id="bars"></ul>
             <p class="caveat">
               Many inputs are anonymized (Vesta <code>V*</code> / <code>id_*</code>): factors
               show <em>which engineered inputs</em> moved the score, not a business reason.
@@ -84,8 +83,64 @@
         </div>
       </section>
 
+      <!-- ── the evidence (charts) ────────────────────────────────── -->
+      <section class="sect sect-tint">
+        <h2 class="eyebrow"><span>The evidence</span></h2>
+
+        <figure class="chart">
+          <figcaption class="chart-head">
+            <h3>Why this threshold — net value vs. where you draw the line</h3>
+            <p class="chart-sub">
+              Net dollars per 100k transactions at every threshold, on the validation set.
+              The line is frozen at its peak (0.1215); on the held-out future slice that same
+              point returns <strong>$111k</strong>, not the validation peak — the out-of-time
+              gap, shown rather than hidden.
+            </p>
+          </figcaption>
+          <div class="chart-svg" id="svg-netvalue"></div>
+          <details class="chart-data">
+            <summary>the numbers</summary>
+            <div id="tbl-netvalue"></div>
+          </details>
+        </figure>
+
+        <figure class="chart">
+          <figcaption class="chart-head">
+            <h3>Why temporal validation — the leakage a random split hides</h3>
+            <p class="chart-sub">
+              Validation PR-AUC under an honest <strong>temporal</strong> split vs. a
+              random cross-validation that trains on future-dated rows. Random-CV is the
+              <span class="ink-flag">anti-pattern</span>: it inflates the tree models by
+              +17–23%. The linear model, which can't exploit time, barely moves.
+            </p>
+          </figcaption>
+          <div class="chart-svg" id="svg-leakage"></div>
+          <details class="chart-data">
+            <summary>the numbers</summary>
+            <div id="tbl-leakage"></div>
+          </details>
+        </figure>
+
+        <figure class="chart">
+          <figcaption class="chart-head">
+            <h3>Why calibration — predicted probability vs. observed fraud rate</h3>
+            <p class="chart-sub">
+              On the holdout, the uncalibrated model is over-confident (below the diagonal);
+              isotonic calibration pulls it onto the line, so a stated probability means what
+              it says. The top isotonic bin saturates near 1.0 — an upper-bin artifact, not
+              perfect certainty.
+            </p>
+          </figcaption>
+          <div class="chart-svg" id="svg-reliability"></div>
+          <details class="chart-data">
+            <summary>the numbers</summary>
+            <div id="tbl-reliability"></div>
+          </details>
+        </figure>
+      </section>
+
       <!-- ── the validation package ───────────────────────────────── -->
-      <nav class="block package" aria-label="The validation package">
+      <nav class="sect package" aria-label="The validation package">
         <h2 class="eyebrow"><span>The validation package</span></h2>
         <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_report.md">
           <span class="exhibit-name">Validation report</span>
@@ -114,7 +169,8 @@
           <strong>Demonstration system</strong> on a public research dataset (IEEE-CIS) — not a
           production fraud decision. Probabilities are calibrated; the operating point is
           optimized on a validation slice and reported on a temporal holdout. The drift
-          monitoring is a replayed simulation on a static dataset.
+          monitoring is a replayed simulation on a static dataset, and real fraud labels
+          arrive weeks late — caveats that travel with every number here.
         </p>
       </footer>
     </main>
