@@ -29,6 +29,10 @@ VALUE_CAPTURE_DEGRADE = 0.10  # >10% relative drop vs baseline = performance bre
 TOP_K_MONITORED = 20  # PSI/Evidently over the top-K most important DENSE numeric features
 DENSE_THRESHOLD = 0.30  # only monitor features <30% missing (sparse block-NaN => small-N noise)
 MIN_FRAUD_FOR_PERF = 4  # don't flag value-capture drift on batches with too few frauds
+# Engineered calendar-position transforms excluded from drift PSI: they encode *when* a
+# batch falls on the clock, not the transaction population, so a forward-replayed batch is
+# trivially "shifted" against the multi-month reference (see _monitored_columns, D-013).
+_CALENDAR_POSITION_FEATURES = frozenset({"dt_day", "dt_dow"})
 BANNER = "Replayed simulation on a static public dataset — not live production monitoring."
 
 
@@ -73,7 +77,20 @@ def prepare(
     numeric, categorical = _monitored_columns(
         base, encoders.model_feature_columns(sp.train), reference
     )
-    baseline_vc = op["value_capture_rate"]
+    # Baseline for the value-capture guard = the model's *out-of-time* value capture on the
+    # full holdout at the frozen threshold, NOT the VAL-optimal rate. The VAL-optimal (~61%)
+    # is the designed rate; the deployed model runs at the characterized out-of-time level
+    # (~48%), so comparing weeks against VAL would breach every week on the known,
+    # documented gap (validation report §4.3). Anchoring to the out-of-time norm makes the
+    # guard fire on *new* degradation instead — the signal §7 escalates to retraining. (D-013)
+    p_hold_all = cal.predict_proba(sp.holdout)[:, 1]
+    baseline_vc = decisions.evaluate_at_threshold(
+        sp.holdout[schema.TARGET].to_numpy(),
+        p_hold_all,
+        sp.holdout[schema.AMT_COL].to_numpy(),
+        op["threshold"],
+        review_cost,
+    )["value_capture_rate"]
     return MonitorContext(
         reference=reference,
         holdout=sp.holdout,
@@ -109,10 +126,18 @@ def _monitored_columns(base, feature_cols, reference) -> tuple[list[str], list[s
     top_numeric = [
         c
         for c in ranked
-        # Exclude causal aggregates (ent_*): expanding-window counts/recency grow
-        # structurally over time, so their PSI reflects accumulating history, not
-        # data/concept drift. Input features + the score distribution carry the signal.
-        if c in numeric_set and not c.startswith("ent_") and miss.get(c, 0.0) < DENSE_THRESHOLD
+        # Exclude features whose PSI reflects *when the batch is* rather than drift in the
+        # transaction population: causal aggregates (ent_*) grow with accumulating history,
+        # and the calendar-position transforms (dt_day = absolute day index, dt_dow =
+        # day-of-week) are trivially "shifted" by construction — a replay batch spans ~2
+        # real days, so it never samples the day axis representatively against the
+        # multi-month reference and would breach every week. Intra-day timing (dt_hour and
+        # its cyclic encodings, dt_is_night) is well-sampled even in a short batch and is
+        # kept, as are all real transaction features + the score distribution. (D-013)
+        if c in numeric_set
+        and not c.startswith("ent_")
+        and c not in _CALENDAR_POSITION_FEATURES
+        and miss.get(c, 0.0) < DENSE_THRESHOLD
     ][:TOP_K_MONITORED]
     dense_cat = [c for c in categorical if miss.get(c, 0.0) < DENSE_THRESHOLD]
     return top_numeric, dense_cat
@@ -163,7 +188,7 @@ def run_batch(ctx: MonitorContext, index: int, out_dir: Path) -> dict:
     if evidently_drift:
         breaches.append("Evidently flagged dataset drift")
     if vc_degradation > VALUE_CAPTURE_DEGRADE and int(y.sum()) >= MIN_FRAUD_FOR_PERF:
-        breaches.append(f"value-capture down {vc_degradation:.0%} vs baseline")
+        breaches.append(f"value-capture down {vc_degradation:.0%} vs out-of-time baseline")
 
     result = {
         "index": index,
@@ -270,9 +295,15 @@ drift, or value-capture down &gt;10% vs baseline → a GitHub Issue is opened.</
 <li><b>PSI on dense inputs + the score distribution only.</b> Sparse block-NaN Vesta
 <code>V*</code>/<code>id_*</code> features are excluded — their PSI is small-sample NaN noise,
 not drift (D-008).</li>
-<li><b>Causal aggregates (<code>ent_*</code>) are excluded from drift PSI.</b>
-Expanding-window counts/recency grow <i>structurally</i> as an entity accumulates history,
-so their shift reflects the design, not data/concept drift.</li>
+<li><b>Structural-time features excluded from drift PSI.</b> Causal aggregates
+(<code>ent_*</code>) grow as an entity accumulates history, and the calendar-position
+transforms (<code>dt_day</code>, <code>dt_dow</code>) encode <i>when</i> a ~2-day batch
+falls on the clock — both shift by construction under forward replay, not from data/concept
+drift (D-008, D-013). Intra-day timing (<code>dt_hour</code>, <code>dt_is_night</code>) is
+kept.</li>
+<li><b>Value-capture baseline = the out-of-time norm</b> (the model's holdout value capture
+at the frozen threshold), so the performance guard fires on <i>new</i> degradation rather
+than the known validation→holdout gap (D-013).</li>
 <li><b>Cadence:</b> one simulated week (of <code>TransactionDT</code>) per scheduled run;
 the stream freezes with a final report when exhausted.</li>
 <li><b>Replay + label lag:</b> a replayed simulation on a static dataset (banner above).

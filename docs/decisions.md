@@ -29,13 +29,30 @@ the isotonic-calibrated LightGBM is the registered champion, the Platt-calibrate
 LightGBM the registered challenger (G4). Serving image adds `libgomp` (LightGBM's
 OpenMP runtime, not bundled in its wheel) and swaps xgboost→lightgbm in requirements.
 
-## D-013 — Monitoring guards retained as small-sample floors (G5.2)
-The D-008 guards (PSI min-30 non-null; value-capture breach needs ≥4 frauds/batch) were
-tuned on the ~125-row/week synthetic fixture. Real replay is ~7.4k rows / ~250 frauds
-per week, where both guards are **inert (always satisfied)** — which is their intent:
-they suppress small-sample noise and do nothing when the sample is ample. **Retained
-unchanged** so any genuinely low-volume slice (a sparse week, the synthetic fixture)
-stays protected; no change needed for real volume.
+## D-013 — Monitoring retuned for real volume (G5.2)
+The small-sample **floors** (PSI min-30 non-null; value-capture breach needs ≥4
+frauds/batch) are retained unchanged — on real volume (~7.4k rows / ~250 frauds per week)
+they are inert, which is their intent: suppress small-sample noise, protect a sparse week
+or the synthetic fixture. But replaying the **real** holdout exposed two ways the breach
+logic cried wolf *every* week (a first-pass "no change needed" call was wrong); both fixed:
+
+1. **Calendar-position features excluded from drift PSI.** `dt_day` (absolute day index)
+   and `dt_dow` (day-of-week) encode *when a batch falls on the clock*, not the transaction
+   population. A replay "week" spans only ~2 real days (147k holdout / 20 batches), so it
+   never samples the day axis representatively against the multi-month train+val reference
+   — `dt_day`/`dt_dow` showed PSI 3–7 and breached every week. Excluded on the same
+   rationale as the `ent_*` aggregates (structural, not drift). Intra-day timing
+   (`dt_hour`, its cyclic encodings, `dt_is_night`) is well-sampled in a short batch and
+   is kept.
+2. **Value-capture baseline set to the out-of-time norm (0.478), not the VAL-optimal
+   (0.611).** The deployed model runs at its characterized out-of-time level (§4.3 gap), so
+   comparing each week to the VAL rate breached on the *known* gap every week. Anchored to
+   the holdout norm, the guard now fires only on **new** degradation: over the first six
+   weeks it stays quiet on the two weeks that beat the norm and flags the genuinely weak
+   ones (11–19% down) — the signal §7 escalates to retraining.
+
+Genuine time-correlated input drift (the raw `D1`/`D15` timedelta features) still breaches
+on the weeks it actually occurs, deduped onto one issue — that is real drift, not noise.
 
 
 
