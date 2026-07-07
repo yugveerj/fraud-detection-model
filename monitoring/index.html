@@ -13,9 +13,29 @@ a{color:#4c78a8}
 </style>
 <div class=banner>Replayed simulation on a static public dataset — not live production monitoring.</div>
 <h1>Fraud model — replayed drift monitoring</h1>
-<p class=meta>provenance <b>synthetic</b> · cadence: one simulated week per scheduled run · Active replay.</p>
+<p class=meta>provenance <b>real</b> · cadence: one simulated week per scheduled run · Active replay.</p>
 <p>Each run replays the next holdout slice, scores it with the deployed model, and reports
 Evidently + PSI drift and label performance. Breach rule: PSI &gt; 0.2, Evidently dataset
 drift, or value-capture down &gt;10% vs baseline → a GitHub Issue is opened.</p>
 <table><tr><th>week</th><th>rows</th><th>fraud rate</th><th>PR-AUC</th>
-<th>value capture</th><th>max PSI</th><th>status</th></tr><tr class='breach'><td><a href='week-00/report.html'>week 00</a></td><td>125</td><td>4.000%</td><td>0.4589</td><td>46.3%</td><td>0.1431</td><td>⚠ Evidently flagged dataset drift; value-capture down 44% vs baseline</td></tr></table>
+<th>value capture</th><th>max PSI</th><th>status</th></tr><tr class='breach'><td><a href='week-00/report.html'>week 00</a></td><td>7,382</td><td>3.563%</td><td>0.3951</td><td>42.5%</td><td>0.2377</td><td>⚠ PSI>0.2 on: D1, D15; value-capture down 11% vs out-of-time baseline</td></tr></table>
+<h2>Methodology</h2>
+<ul class=meta>
+<li><b>PSI on dense inputs + the score distribution only.</b> Sparse block-NaN Vesta
+<code>V*</code>/<code>id_*</code> features are excluded — their PSI is small-sample NaN noise,
+not drift (D-008).</li>
+<li><b>Structural-time features excluded from drift PSI.</b> Causal aggregates
+(<code>ent_*</code>) grow as an entity accumulates history, and the calendar-position
+transforms (<code>dt_day</code>, <code>dt_dow</code>) encode <i>when</i> a ~2-day batch
+falls on the clock — both shift by construction under forward replay, not from data/concept
+drift (D-008, D-013). Intra-day timing (<code>dt_hour</code>, <code>dt_is_night</code>) is
+kept.</li>
+<li><b>Value-capture baseline = the out-of-time norm</b> (the model's holdout value capture
+at the frozen threshold), so the performance guard fires on <i>new</i> degradation rather
+than the known validation→holdout gap (D-013).</li>
+<li><b>Cadence:</b> one simulated week (of <code>TransactionDT</code>) per scheduled run;
+the stream freezes with a final report when exhausted.</li>
+<li><b>Replay + label lag:</b> a replayed simulation on a static dataset (banner above).
+This replay has labels immediately; in production fraud labels arrive <i>weeks late</i>, so
+live monitoring watches input + score drift, not just outcomes.</li>
+</ul>

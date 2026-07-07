@@ -1,7 +1,7 @@
 {
   "week": 0,
   "breaches": [
-    "Evidently flagged dataset drift",
-    "value-capture down 44% vs baseline"
+    "PSI>0.2 on: D1, D15",
+    "value-capture down 11% vs out-of-time baseline"
   ]
 }

@@ -1,23 +1,23 @@
 {
-  "provenance": "synthetic",
-  "n_batches": 10,
+  "provenance": "real",
+  "n_batches": 20,
   "cursor": 1,
-  "baseline_value_capture": 0.8294161194382547,
+  "baseline_value_capture": 0.4782431251450506,
   "history": [
     {
       "index": 0,
-      "dt_min": 839357,
-      "dt_max": 862822,
-      "rows": 125,
-      "fraud_rate": 0.04,
-      "pr_auc": 0.4589,
-      "value_capture": 0.463,
-      "vc_degradation": 0.4418,
-      "max_psi": 0.1431,
-      "evidently_drift": true,
+      "dt_min": 11246665,
+      "dt_max": 11481762,
+      "rows": 7382,
+      "fraud_rate": 0.03563,
+      "pr_auc": 0.3951,
+      "value_capture": 0.425,
+      "vc_degradation": 0.1114,
+      "max_psi": 0.2377,
+      "evidently_drift": false,
       "breaches": [
-        "Evidently flagged dataset drift",
-        "value-capture down 44% vs baseline"
+        "PSI>0.2 on: D1, D15",
+        "value-capture down 11% vs out-of-time baseline"
       ]
     }
   ],
