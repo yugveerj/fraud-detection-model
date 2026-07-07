@@ -1,14 +1,18 @@
 # Model validation report — IEEE-CIS fraud detection
 
-**Model:** `fraud-scoring` (MLflow registry v1) — isotonic-calibrated XGBoost
+**Model:** `fraud-scoring` (MLflow registry v2) — isotonic-calibrated LightGBM
 **Status:** **Non-production demonstration** on a public research dataset
 **Framework:** structured after Federal Reserve **SR 11-7** *Supervisory Guidance on
-Model Risk Management*. SR 11-7 was superseded on 17 Apr 2026 by **SR 26-2** (*Revised
-Guidance on Model Risk Management*, which also replaced SR 21-8); SR 26-2 retains the
-same core framework — conceptual soundness, ongoing monitoring, outcomes analysis, and
-effective challenge — while emphasizing a **risk-based approach tailored to the
-institution's model-risk profile**. This report mirrors those concerns, not
-boilerplate, and cites this repository's real artifacts throughout.
+Model Risk Management*. SR 11-7 was superseded on 17 Apr 2026 by
+[**SR 26-2**](https://www.federalreserve.gov/supervisionreg/srletters/SR2602.htm)
+(*Revised Guidance on Model Risk Management*, which also replaced SR 21-8); SR 26-2
+retains the same core framework — conceptual soundness, ongoing monitoring, outcomes
+analysis, and effective challenge — while emphasizing a **risk-based approach tailored to
+the institution's model-risk profile**. This report mirrors those concerns, not
+boilerplate, and cites this repository's real artifacts throughout. **Scope note:**
+gradient-boosted models such as this one remain **fully in scope** of the revised
+guidance; SR 26-2's separate treatment of generative and agentic AI does not apply here —
+this is a conventional supervised classifier, not a GenAI system.
 
 > **Data provenance.** Computed on the **real Kaggle IEEE-CIS Fraud Detection data**
 > (590,540 labelled transactions; integrity manifest
@@ -26,10 +30,10 @@ decision threshold. The central finding of the validation is methodological: a
 random-cross-validation protocol inflates the primary metric by **+17% (XGBoost) to +23%
 (LightGBM)** over the honest temporal protocol (§4.1) — the reason this model is
 validated temporally throughout. On the out-of-time holdout the calibrated model achieves
-**PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024**; at the frozen operating point it captures
-**47.5% of fraud value at a 3.44% false-positive rate** for **≈ $125k net value per 100k
+**PR-AUC 0.464, ROC-AUC 0.879, Brier 0.023**; at the frozen operating point it captures
+**47.8% of fraud value at a 4.03% false-positive rate** for **≈ $111k net value per 100k
 transactions**. Performance degrades on the out-of-time holdout relative to validation
-(58% → 48% value capture) — an expected consequence of temporal drift that the monitoring
+(61% → 48% value capture) — an expected consequence of temporal drift that the monitoring
 layer (§7) is built to detect. Results are independently reproduced in R (§4.4, effective
 challenge).
 
@@ -50,6 +54,16 @@ fraud decision" ([`serving/models.py`](../serving/models.py), the web demo foote
 integrity (§3.2), calibration (§3.4), and independent replication (§4.4). *Usage risk*
 is bounded by the non-production status, the anonymized-feature interpretation caveat
 (§6), and the label-lag caveat that accompanies every performance number.
+
+**Materiality (SR 26-2).** The revised guidance scales the depth of governance to a
+model's **materiality** — roughly *exposure × purpose*. By that construct this model is
+**low-materiality**: it takes no real transactions, moves no money, and makes no customer
+decision — the served endpoint is explicitly a demonstration. Applying the construct to
+this document itself, the proportionate response is not lighter validation but validation
+that *demonstrates the full toolkit at a scale a reviewer can audit* — temporal-integrity
+tests, calibration, a dollar-framed operating point, and independent replication — which
+is what follows. A production deployment at real exposure would raise materiality and
+pull in the controls named as gaps in §6 (fairness assessment, live outcome monitoring).
 
 ---
 
@@ -111,9 +125,11 @@ D-001).
 Probabilities are calibrated with **isotonic regression** (default; Platt compared) fit on
 VALIDATION only, using a frozen base estimator so the model is never refit
 ([`pipeline/modeling.py`](../pipeline/modeling.py)). Calibration is **material** here: the
-cost-weighted base model is badly miscalibrated (Brier 0.071); isotonic corrects it to
-**0.024** (§4.2). No probability is displayed anywhere unless it comes from the calibrated
-model.
+cost-weighted base model is badly miscalibrated (Brier 0.052); isotonic corrects it to
+**0.023** (§4.2). No probability is displayed anywhere unless it comes from the calibrated
+model. Isotonic carries a known cost — its tied-probability blocks lower ranking-based
+PR-AUC slightly versus the raw scores — which is measured and weighed against a Platt
+challenger in §4.2 and §7.
 
 ### 3.5 Assumptions
 (1) `TransactionDT` ordering is a faithful proxy for real time; (2) blocking a flagged
@@ -141,25 +157,35 @@ does not exploit temporal structure, is not. This is the cost of the anti-patter
 quantified on real data, and the reason every split in this project is temporal.
 
 ### 4.2 Holdout metrics (reported once)
-Isotonic-calibrated XGBoost on the HOLDOUT (n=147,635; 5,100 frauds):
+Isotonic-calibrated LightGBM on the HOLDOUT (n=147,635; 5,100 frauds):
 
 | metric | value |
 | --- | --- |
-| PR-AUC (primary) | **0.463** |
-| ROC-AUC | 0.885 |
-| Brier score | 0.0236 |
-| recall @ frozen operating point | 53.8% |
+| PR-AUC (primary) | **0.464** |
+| ROC-AUC | 0.879 |
+| Brier score | 0.0235 |
+| recall @ frozen operating point | 55.3% |
 
 **Calibration (fit on VAL, assessed on VAL and HOLDOUT).** The uncalibrated cost-weighted
-model has Brier 0.071; isotonic calibration corrects it to **0.023 (VAL) / 0.024
+model has Brier 0.052; isotonic calibration corrects it to **0.022 (VAL) / 0.023
 (HOLDOUT)** — a large, transferable improvement, confirmed by the reliability curve
 ([`docs/figures/reliability.png`](figures/reliability.png)). This is why calibration is
 mandatory: the dollar-framed thresholds depend on the probability *level* being right.
 
+**Calibration-method tradeoff (effective challenge on the calibrator itself).** Isotonic
+is not free on the ranking metric. On the holdout, isotonic scores PR-AUC **0.464** versus
+**0.479** for both the raw model and Platt scaling — its step-function output ties large
+blocks of transactions, and PR-AUC penalises the ambiguous within-tie ordering. Isotonic
+is nonetheless retained as champion (the a-priori choice, D-005): it delivers the best
+Brier and the reliability the dollar layer depends on, and the operating point is chosen
+on *value*, not raw ranking. The Platt-calibrated LightGBM is registered as the **named
+challenger** (`fraud-scoring-challenger` v1) so the tradeoff is auditable rather than
+assumed away (§7; [`docs/decisions.md`](decisions.md) D-009).
+
 ### 4.3 Stability across time (SR 11-7 — performance over time)
 The HOLDOUT is replayed as 20 simulated weeks ([§7](#7-ongoing-monitoring-plan); the
 `/monitoring/` index). Weekly PR-AUC and value-capture vary across the window and degrade
-relative to validation (value capture 58% → 48%) — real temporal drift. This instability
+relative to validation (value capture 61% → 48%) — real temporal drift. This instability
 is the justification for continuous monitoring and recalibration triggers, not a defect to
 be hidden.
 
@@ -169,11 +195,21 @@ codebase**, from a single exported scores file
 ([`docs/validation_r/replication.Rmd`](validation_r/replication.Rmd) reading
 `holdout_scores.csv`; **148k rows**). R re-derives PR-AUC, ROC-AUC, Brier, the reliability
 curve, the value-capture curve, and a score-distribution PSI, and **reconciles them against
-the Python figures within tolerance** (PR-AUC 0.4631, ROC-AUC 0.8845, Brier 0.02357, value
-capture 0.475 — exact). The R challenge additionally surfaced two subtle **tie-handling**
-issues in the metric definitions (isotonic produces large tied-probability blocks), which
-were corrected so the figures reconcile — exactly the kind of finding an independent
+the Python figures within tolerance** (PR-AUC 0.4642, ROC-AUC 0.8788, Brier 0.02347, value
+capture 0.478 — exact). The R challenge additionally surfaced two subtle **tie-handling**
+issues in the metric definitions (isotonic produces large tied-probability blocks): a
+naive per-row R implementation of average precision returns 0.4753, a **0.011 gap that
+exceeds the 0.01 reconciliation tolerance** on this model, and reconciles only once ties
+are collapsed at distinct thresholds — exactly the kind of finding an independent
 implementation is meant to catch ([`docs/decisions.md`](decisions.md) D-009).
+
+**Validator independence (SR 26-2).** The revised guidance decouples validation quality
+from reporting structure — it asks for **rigor and objectivity**, not a particular place on
+the org chart. This §7b challenge is a *solo* re-implementation, but it is independent in
+the way that matters: a separate language and toolchain (R, not Python), no shared code
+path, working only from an exported scores file, and it materially changed the numbers
+(the tie-handling fix above). Objectivity is demonstrated by what it caught, not by who
+signed it.
 
 ---
 
@@ -186,8 +222,8 @@ The model output is an input to a business decision, framed in dollars
 - **Cost model.** Net value = (fraud $ caught by alerts) − review_cost × (alerts).
   Reviewing costs $25 (parameter); catching a fraud saves its `TransactionAmt`.
 - **Operating point.** Threshold **optimized on VALIDATION, frozen, reported on
-  HOLDOUT** — never tuned on the reported data. At the frozen threshold (**0.137**) the
-  model captures **47.5% of fraud value at 3.44% FPR** (recall 53.8%) for **≈ $125k net
+  HOLDOUT** — never tuned on the reported data. At the frozen threshold (**0.122**) the
+  model captures **47.8% of fraud value at 4.03% FPR** (recall 55.3%) for **≈ $111k net
   value per 100k transactions**. The tie-block realizability of the operating point was
   corrected after an adversarial review ([`docs/decisions.md`](decisions.md), Phase C).
 - **Sensitivity.** The optimal operating point is reported across review costs $5–$75
@@ -232,12 +268,26 @@ by a daily cron ([`.github/workflows/monitoring.yml`](../.github/workflows/monit
   or PSI breach on a top-importance input escalates to retraining.
 - **Retrain triggers.** (a) sustained value-capture degradation > 10% over two
   consecutive windows; (b) PSI > 0.2 on a top-5 importance feature; (c) calibration drift
-  (holdout reliability departing from validation) — recalibrate first, retrain if
-  unresolved.
-- **Champion / challenger.** The registered model is champion. A challenger (e.g. the
-  LightGBM configuration in the grid, or a retrained champion) is scored on the same
-  replay stream; promotion requires beating the champion on temporal-holdout PR-AUC **and**
-  net value at the operating point, never on random-CV.
+  (holdout reliability departing from validation). The recalibration experiment below
+  shows recalibration alone does **not** recover this model's out-of-time loss, so a
+  sustained (a)-type breach escalates to **retraining**, not just a calibration refresh.
+- **Recalibration-policy experiment (does recalibration recover the drift?).** A replay
+  experiment ([`docs/recalibration_experiment.md`](recalibration_experiment.md)) measures
+  the answer instead of asserting it: over the holdout stream the frozen operating point
+  loses **≈ $139.6k / 100k** relative to validation, and periodically **refitting the
+  isotonic map + re-optimizing the threshold** on a trailing labelled window does *not*
+  recover it — recalibrating every 4 or 8 weeks lands **−$2.1k to −$2.3k** *below* frozen,
+  and under a realistic **2-week label lag** it is **−$9.9k** worse. The degradation is a
+  genuine feature-distribution shift the frozen base model cannot track through calibration
+  alone; this both vindicates freezing the operating point (rather than chasing noisy
+  trailing windows) and confirms retraining as the correct lever for sustained drift. It is
+  a monitoring-policy simulation only — it never changes the frozen headline operating point.
+- **Champion / challenger.** The registered model is champion (`fraud-scoring` v2). The
+  **named challenger is the Platt-calibrated LightGBM** registered as
+  `fraud-scoring-challenger` v1 — the same base model with a different calibration map,
+  which trades isotonic's better Brier for higher raw PR-AUC (§4.2). It is scored on the
+  same replay stream; promotion requires beating the champion on temporal-holdout PR-AUC
+  **and** net value at the operating point, never on random-CV.
 - **Availability.** A scheduled uptime check pings the demo and `/healthz`; failure opens
   a GitHub Issue ([`.github/workflows/uptime.yml`](../.github/workflows/uptime.yml)) — a
   dead recruiter-facing link is itself a monitored failure state.
@@ -246,14 +296,16 @@ by a daily cron ([`.github/workflows/monitoring.yml`](../.github/workflows/monit
 
 ## 8. Governance & documentation (SR 11-7 §VI)
 
-- **Model inventory.** The model is registered in MLflow (`fraud-scoring` v1) with its run
-  id; the serving artifact and `/healthz` report the version + run id
-  ([`serving/handler.py`](../serving/handler.py)).
+- **Model inventory.** The model is registered in MLflow (`fraud-scoring` v2, champion;
+  `fraud-scoring-challenger` v1) with its run id; the serving artifact and `/healthz`
+  report the served version + run id ([`serving/handler.py`](../serving/handler.py)).
 - **Reproducibility.** One seeded command rebuilds the model, experiments, and reports;
   CI runs lint, unit + causality tests, and a seeded smoke-train on every push.
 - **Change control.** Infrastructure is Terraform ([`infra/`](../infra/)); once applied,
-  console-only changes are prohibited. `terraform apply` is owner/CI-run behind a gated
-  environment; the agent authors but never applies.
+  ad-hoc console changes are prohibited. `terraform apply` runs only through a controlled,
+  owner-authorized path with CloudWatch billing alarms and API Gateway throttling as cost
+  guards in place first ([`docs/decisions.md`](decisions.md) D-007, D-012); destructive
+  operations require explicit per-action authorization.
 - **Decisions log.** Consequential choices and their rationale are recorded in
   [`docs/decisions.md`](decisions.md).
 - **Effective challenge.** Each development phase was subjected to an adversarial,

@@ -27,8 +27,9 @@ n   <- nrow(scores)
 cat(sprintf("holdout rows: %d | frauds: %d | base rate: %.3f%%\n", n, sum(y), 100 * mean(y)))
 
 # --- Developer (Python) figures being challenged, from the repo artifacts ---
-PY <- list(pr_auc = 0.4631, roc_auc = 0.8845, brier = 0.02357,
-           threshold = 0.1369, value_capture = 0.475)
+# Champion: isotonic-calibrated LightGBM (promoted over XGBoost, docs/decisions D-011).
+PY <- list(pr_auc = 0.4642, roc_auc = 0.8788, brier = 0.02347,
+           threshold = 0.1215, value_capture = 0.478)
 TOL <- 0.01  # absolute tolerance for reconciliation
 ```
 
@@ -147,17 +148,17 @@ if (all(recon$within_tol)) {
 ### Findings note — a discrepancy that reconciled
 
 A first-pass R implementation of average precision (evaluating precision/recall
-**per row**) gives PR-AUC 0.4704 against the developer's 0.4631 — the right ballpark but
-the wrong method. Root cause: isotonic calibration produces blocks of **tied**
-probabilities, and per-row evaluation double-counts precision within a tie block.
-scikit-learn (and the corrected R above) evaluate precision/recall at **distinct
-thresholds**, collapsing ties; with tie-aware AP the figure reconciles exactly (0.4631).
-A parallel issue affected ROC-AUC — per-row trapezoidal integration also mishandles ties,
-so the rank-based (Mann-Whitney, average-rank) form is used and reconciles exactly
-(0.8845). Here the per-row error stays within the 0.01 tolerance, but on data with larger
-tie blocks (e.g. the synthetic fixture, where the gap was 0.34 vs 0.31) it exceeds it —
-either way it is a genuine metric-definition bug. Brier and value-capture were unaffected
-(they do not depend on within-tie ordering). This is the value of an independent
+**per row**) gives PR-AUC 0.4753 against the developer's 0.4642 — a **0.011 gap that
+exceeds the 0.01 reconciliation tolerance**. Root cause: isotonic calibration produces
+blocks of **tied** probabilities, and per-row evaluation double-counts precision within a
+tie block. scikit-learn (and the corrected R above) evaluate precision/recall at
+**distinct thresholds**, collapsing ties; with tie-aware AP the figure reconciles exactly
+(0.4642). A parallel issue affected ROC-AUC — per-row trapezoidal integration also
+mishandles ties, so the rank-based (Mann-Whitney, average-rank) form is used and
+reconciles exactly (0.8788). The size of the gap tracks the tie-block size (LightGBM's
+isotonic output ties more than XGBoost's did), so the fix is not optional here. Brier and
+value-capture were unaffected (they do not depend on within-tie ordering). This is the
+value of an independent
 challenge: it surfaces subtle tie-handling issues a shared codebase would have hidden.
 
 **Effective challenge conclusion.** The independent R recomputation of PR-AUC, ROC-AUC,
