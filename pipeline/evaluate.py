@@ -301,10 +301,18 @@ def _render_report(
     ]
     for c in cases:
         decision = "ALERT" if c.proba >= op["threshold"] else "pass"
+        # Isotonic's top bin saturates at 1.0; flag a rounded-1.000 score so a reviewer
+        # reads it as a calibrated bin rate, not a suspicious claim of certainty.
+        note = (
+            " (an isotonic upper-bin value — the calibrator's top bin is saturated, so this"
+            " is that bin's empirical fraud rate, not a claim of certainty)"
+            if c.proba >= 0.9995
+            else ""
+        )
         lines += [
             f"**{c.kind.title()}** — actual label {c.label}, calibrated P(fraud) "
             f"{c.proba:.3f}, amount ${c.amount:,.2f} → **{decision}** at threshold "
-            f"{op['threshold']:.3f}.",
+            f"{op['threshold']:.3f}.{note}",
             "",
             "| feature | value | SHAP |",
             "| --- | --- | --- |",
