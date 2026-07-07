@@ -1,5 +1,22 @@
 # Decisions log
 
+## D-010 — Ran on real IEEE-CIS data (owner supplied Kaggle token)
+The owner provided a Kaggle API token (new `KGAT_` access-token format;
+`kaggle` client 2.2.3 reads `~/.kaggle/access_token`) and accepted the competition
+rules. `fetch_data` pulled the real **590,540 transactions** (3.50% fraud), and the
+whole pipeline was re-run on real data. Every committed artifact
+(experiments.md, decision_report, figures, manifest, EDA notebook, validation report,
+model card, README, R replication) now reports **real** numbers; the synthetic framing
+is removed. Raw data, `holdout_scores.csv`, and the monitoring `site/` stay gitignored.
+Headline real results: leakage inflation **+17% (XGBoost) / +23% (LightGBM)** temporal
+vs random-CV (logreg −6%); holdout **PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024** (0.071
+uncalibrated — calibration is clearly material on real data); operating point captures
+**47.5% of fraud value at 3.44% FPR** for ≈ $125k net / 100k. R effective-challenge
+reconciled all metrics exactly on the 148k-row real holdout. The synthetic fixture is
+retained as the CI/test fallback (D-006 tuning still applies to it).
+
+
+
 Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 

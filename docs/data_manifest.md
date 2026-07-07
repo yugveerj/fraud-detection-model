@@ -1,41 +1,40 @@
 # Data manifest
 
-> **SYNTHETIC FIXTURE — NOT REAL DATA.** These numbers describe the schema-identical synthetic fixture used for tests/CI (SPEC Section 10). They are regenerated from the real IEEE-CIS competition data at fetch time (`uv run python -m pipeline.fetch_data`) and must never be cited as results.
-
-- **Provenance:** synthetic
-- **Generated (UTC):** 2026-07-06T04:28:50+00:00
+- **Provenance:** real
+- **Generated (UTC):** 2026-07-06T23:33:11+00:00
 
 ## Transactions
 
 | metric | value |
 | --- | --- |
-| rows | 5,000 |
+| rows | 590,540 |
 | columns | 394 |
-| fraud count | 175 |
-| fraud rate | 3.5000% |
-| TransactionDT range | 86,436 – 1,083,726 |
-| TransactionAmt range | 1.47 – 2,593.47 |
+| fraud count | 20,663 |
+| fraud rate | 3.4990% |
+| TransactionDT range | 86,400 – 15,811,131 |
+| TransactionAmt range | 0.25 – 31,937.39 |
 
 ## Identity (left-joined subset)
 
 | metric | value |
 | --- | --- |
-| rows | 1,208 |
+| rows | 144,233 |
 | columns | 41 |
-| coverage of transactions | 24.16% |
+| coverage of transactions | 24.42% |
 
 ## Temporal segmentation (by TransactionDT)
 
-Cut points: train|val = `687878.4`, val|holdout = `839182.25`.
+Cut points: train|val = `8745782.399999999`, val|holdout = `11246620.0`.
 
 | split | rows | frac | dt_min | dt_max | fraud_rate |
 | --- | --- | --- | --- | --- | --- |
-| train | 3,000 | 0.6 | 86436 | 687754 | 0.04067 |
-| val | 750 | 0.15 | 688065 | 839124 | 0.024 |
-| holdout | 1,250 | 0.25 | 839357 | 1083726 | 0.028 |
+| train | 354,324 | 0.6 | 86400 | 8745772 | 0.03383 |
+| val | 88,581 | 0.15 | 8745798 | 11246605 | 0.04036 |
+| holdout | 147,635 | 0.25 | 11246665 | 15811131 | 0.03454 |
 
 ## Integrity
 
-No raw file checksums (synthetic fixture). Generator parameters:
-
-- module: `pipeline.synthetic`  ·  n = 5000  ·  seed = 42
+| file | size (bytes) | sha256 |
+| --- | --- | --- |
+| train_transaction.csv | 683,351,067 | `3a5c83ab6b3cc13dcabe5ffa9f522307fd5f7f7b6e6f6a60c32284ca6283d642` |
+| train_identity.csv | 26,529,680 | `b63c725d8377be90a995268d97f347c17d456b95db45807adcf9f59cd603c37c` |

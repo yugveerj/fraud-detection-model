@@ -10,14 +10,11 @@ effective challenge — while emphasizing a **risk-based approach tailored to th
 institution's model-risk profile**. This report mirrors those concerns, not
 boilerplate, and cites this repository's real artifacts throughout.
 
-> **Provenance caveat, applied to every number below.** No Kaggle credentials were
-> available at build time, so the pipeline ran on a **schema-identical synthetic
-> fixture** ([`pipeline/synthetic.py`](../pipeline/synthetic.py); manifest
-> [`docs/data_manifest.md`](data_manifest.md)). Every figure is labelled *synthetic /
-> illustrative*. The machinery is real and reproduces the **real** results with one
-> command (`uv run python -m pipeline.train --full && uv run python -m pipeline.evaluate --report`)
-> the moment credentials are supplied. This caveat travels with any number that leaves
-> the repo.
+> **Data provenance.** Computed on the **real Kaggle IEEE-CIS Fraud Detection data**
+> (590,540 labelled transactions; integrity manifest
+> [`docs/data_manifest.md`](data_manifest.md)). Reproduce end to end with
+> `uv run python -m pipeline.train --full && uv run python -m pipeline.evaluate --report`.
+> This model is a **demonstration** and makes no real fraud decisions.
 
 ---
 
@@ -26,14 +23,15 @@ boilerplate, and cites this repository's real artifacts throughout.
 A gradient-boosted fraud model is developed under **leakage-proof temporal validation**,
 calibrated to produce trustworthy probabilities, and operated through a **dollar-framed**
 decision threshold. The central finding of the validation is methodological: a
-random-cross-validation protocol inflates the primary metric by **+15% to +42%** over the
-honest temporal protocol (§4.1) — the reason this model is validated temporally
-throughout. On the (synthetic) holdout the calibrated model achieves **PR-AUC 0.308,
-ROC-AUC 0.909, Brier 0.0228**; at the frozen operating point it captures **35.9% of fraud
-value at a 1.65% false-positive rate** for a positive net value. Performance degrades on
-the out-of-time holdout relative to validation — an expected consequence of temporal
-drift that the monitoring layer (§7) is built to detect. Results are independently
-reproduced in R (§4.4, effective challenge).
+random-cross-validation protocol inflates the primary metric by **+17% (XGBoost) to +23%
+(LightGBM)** over the honest temporal protocol (§4.1) — the reason this model is
+validated temporally throughout. On the out-of-time holdout the calibrated model achieves
+**PR-AUC 0.463, ROC-AUC 0.885, Brier 0.024**; at the frozen operating point it captures
+**47.5% of fraud value at a 3.44% false-positive rate** for **≈ $125k net value per 100k
+transactions**. Performance degrades on the out-of-time holdout relative to validation
+(58% → 48% value capture) — an expected consequence of temporal drift that the monitoring
+layer (§7) is built to detect. Results are independently reproduced in R (§4.4, effective
+challenge).
 
 ---
 
@@ -58,21 +56,23 @@ is bounded by the non-production status, the anonymized-feature interpretation c
 ## 2. Data (SR 11-7 §V — data quality & relevance)
 
 - **Source.** Kaggle IEEE-CIS Fraud Detection — `train_transaction` + `train_identity`
-  (~590k labelled transactions; `TransactionDT` is a relative timestamp). The unlabelled
-  competition test set is not used. Integrity (row counts, class balance, checksums) is
-  recorded at fetch time to [`docs/data_manifest.md`](data_manifest.md)
-  ([`pipeline/manifest.py`](../pipeline/manifest.py)).
-- **This run (synthetic fixture).** 5,000 transactions × 394 columns, **3.5% fraud**;
-  identity present for 24% of transactions (left-joined). Splits below.
+  (**590,540** labelled transactions; `TransactionDT` is a relative timestamp). The
+  unlabelled competition test set is not used. Integrity (row counts, class balance,
+  SHA-256 checksums) is recorded at fetch time to
+  [`docs/data_manifest.md`](data_manifest.md) ([`pipeline/manifest.py`](../pipeline/manifest.py)).
+- **Class balance.** 20,663 frauds — **3.50%**. Identity is present for 144,233
+  transactions (**24.4%**) and left-joined.
 - **Temporal segmentation** — by `TransactionDT`, documented cut points
   ([`pipeline/data.py`](../pipeline/data.py)):
 
-  | split | share | role |
-  | --- | --- | --- |
-  | TRAIN | first 60% | model fitting |
-  | VALIDATION | next 15% | calibration + threshold + model selection |
-  | HOLDOUT | final 25% | reported once, then replayed as the monitoring stream (§7) |
+  | split | rows | share | fraud rate | role |
+  | --- | --- | --- | --- | --- |
+  | TRAIN | 354,324 | 60% | 3.38% | model fitting |
+  | VALIDATION | 88,581 | 15% | 4.04% | calibration + threshold + model selection |
+  | HOLDOUT | 147,635 | 25% | 3.45% | reported once, then replayed for monitoring (§7) |
 
+  The fraud rate itself varies across the window (3.38% → 4.04% → 3.45%) — real temporal
+  non-stationarity, and part of what §7 monitors.
 - **Known dataset limitations.** Features `V1–V339` (Vesta engineered) and `id_12–id_38`
   are **anonymized** with no published semantics; heavy block-structured missingness;
   a single fixed observation window (no multi-year seasonality); the competition labels
@@ -86,9 +86,8 @@ is bounded by the non-production status, the anonymized-feature interpretation c
 Base per-transaction transforms (amount log/decimal/round-number flags, time-of-day and
 day-of-week from `TransactionDT`) plus **causal entity aggregates** (per card / email /
 address: prior count, prior mean/std amount, recency)
-([`pipeline/features.py`](../pipeline/features.py)). The feature set is deliberately
-disciplined (~50–100 engineered columns) — the project's value is validation rigor, not
-feature count.
+([`pipeline/features.py`](../pipeline/features.py)) — 421 numeric + 15 categorical
+modelling columns.
 
 ### 3.2 Causality — the headline control
 Every entity aggregate is computed over **strictly-earlier** transactions only (past-only
@@ -111,8 +110,10 @@ D-001).
 ### 3.4 Calibration
 Probabilities are calibrated with **isotonic regression** (default; Platt compared) fit on
 VALIDATION only, using a frozen base estimator so the model is never refit
-([`pipeline/modeling.py`](../pipeline/modeling.py)). No probability is displayed anywhere
-unless it comes from the calibrated model.
+([`pipeline/modeling.py`](../pipeline/modeling.py)). Calibration is **material** here: the
+cost-weighted base model is badly miscalibrated (Brier 0.071); isotonic corrects it to
+**0.024** (§4.2). No probability is displayed anywhere unless it comes from the calibrated
+model.
 
 ### 3.5 Assumptions
 (1) `TransactionDT` ordering is a faithful proxy for real time; (2) blocking a flagged
@@ -130,46 +131,49 @@ Same features, same model, two validation protocols
 
 | model | temporal-val PR-AUC | random-CV PR-AUC | inflation |
 | --- | --- | --- | --- |
-| logistic regression | 0.2525 | 0.3590 | **+42.2%** |
-| XGBoost | 0.3770 | 0.4695 | **+24.5%** |
-| LightGBM | 0.4093 | 0.4690 | **+14.6%** |
+| logistic regression | 0.496 | 0.467 | −5.9% |
+| XGBoost | 0.606 | 0.711 | **+17.3%** |
+| LightGBM | 0.621 | 0.765 | **+23.2%** |
 
-Random k-fold CV trains on future-dated rows and reports an optimistic PR-AUC. The
-inflation is the cost of the anti-pattern — quantified here, and the reason every split
-in this project is temporal.
+Random k-fold CV trains on future-dated rows and reports an optimistic PR-AUC. The tree
+models — the ones actually deployed — are inflated **+17–23%**; the linear model, which
+does not exploit temporal structure, is not. This is the cost of the anti-pattern,
+quantified on real data, and the reason every split in this project is temporal.
 
 ### 4.2 Holdout metrics (reported once)
-Isotonic-calibrated XGBoost on the HOLDOUT (n=1,250; 35 frauds):
+Isotonic-calibrated XGBoost on the HOLDOUT (n=147,635; 5,100 frauds):
 
 | metric | value |
 | --- | --- |
-| PR-AUC (primary) | **0.308** |
-| ROC-AUC | 0.909 |
-| Brier score | 0.0228 |
-| recall @ frozen operating point | 34.3% |
+| PR-AUC (primary) | **0.463** |
+| ROC-AUC | 0.885 |
+| Brier score | 0.0236 |
+| recall @ frozen operating point | 53.8% |
 
-Calibration (fit on VAL, assessed on VAL and HOLDOUT): isotonic improves the
-**validation** Brier (0.0194 → 0.0161). On the holdout the Brier is comparable
-(≈0.023); under class imbalance the Brier is dominated by the base rate and is a weak
-calibration diagnostic — the **reliability curve** ([`docs/figures/reliability.png`](figures/reliability.png))
-is the real check.
+**Calibration (fit on VAL, assessed on VAL and HOLDOUT).** The uncalibrated cost-weighted
+model has Brier 0.071; isotonic calibration corrects it to **0.023 (VAL) / 0.024
+(HOLDOUT)** — a large, transferable improvement, confirmed by the reliability curve
+([`docs/figures/reliability.png`](figures/reliability.png)). This is why calibration is
+mandatory: the dollar-framed thresholds depend on the probability *level* being right.
 
 ### 4.3 Stability across time (SR 11-7 — performance over time)
-The HOLDOUT is replayed as ~10 simulated weeks ([§7](#7-ongoing-monitoring-plan); the
-`/monitoring/` index). Weekly PR-AUC and value-capture **vary materially** across the
-window and degrade relative to validation — the expected signature of the temporal drift
-injected into the fixture (concept + covariate; [`docs/decisions.md`](decisions.md) D-006).
-This instability is the justification for continuous monitoring and recalibration
-triggers, not a defect to be hidden.
+The HOLDOUT is replayed as 20 simulated weeks ([§7](#7-ongoing-monitoring-plan); the
+`/monitoring/` index). Weekly PR-AUC and value-capture vary across the window and degrade
+relative to validation (value capture 58% → 48%) — real temporal drift. This instability
+is the justification for continuous monitoring and recalibration triggers, not a defect to
+be hidden.
 
 ### 4.4 Independent replication — effective challenge (SR 11-7 §V; SPEC §7b)
 The holdout metrics are recomputed **independently in R, with no imports from the Python
 codebase**, from a single exported scores file
 ([`docs/validation_r/replication.Rmd`](validation_r/replication.Rmd) reading
-`holdout_scores.csv`). R re-derives PR-AUC, ROC-AUC, Brier, the reliability curve, the
-value-capture curve, and a score-distribution PSI, and **reconciles them against the
-Python figures within tolerance**. This is the "effective challenge" SR 11-7 requires:
-an independent implementation reproducing the developer's results.
+`holdout_scores.csv`; **148k rows**). R re-derives PR-AUC, ROC-AUC, Brier, the reliability
+curve, the value-capture curve, and a score-distribution PSI, and **reconciles them against
+the Python figures within tolerance** (PR-AUC 0.4631, ROC-AUC 0.8845, Brier 0.02357, value
+capture 0.475 — exact). The R challenge additionally surfaced two subtle **tie-handling**
+issues in the metric definitions (isotonic produces large tied-probability blocks), which
+were corrected so the figures reconcile — exactly the kind of finding an independent
+implementation is meant to catch ([`docs/decisions.md`](decisions.md) D-009).
 
 ---
 
@@ -182,9 +186,9 @@ The model output is an input to a business decision, framed in dollars
 - **Cost model.** Net value = (fraud $ caught by alerts) − review_cost × (alerts).
   Reviewing costs $25 (parameter); catching a fraud saves its `TransactionAmt`.
 - **Operating point.** Threshold **optimized on VALIDATION, frozen, reported on
-  HOLDOUT** — never tuned on the reported data. At the frozen threshold (0.25) the model
-  captures **35.9% of fraud value at 1.65% FPR** for **≈ $236k net value per 100k
-  transactions** (synthetic). The tie-block realizability of the operating point was
+  HOLDOUT** — never tuned on the reported data. At the frozen threshold (**0.137**) the
+  model captures **47.5% of fraud value at 3.44% FPR** (recall 53.8%) for **≈ $125k net
+  value per 100k transactions**. The tie-block realizability of the operating point was
   corrected after an adversarial review ([`docs/decisions.md`](decisions.md), Phase C).
 - **Sensitivity.** The optimal operating point is reported across review costs $5–$75
   ([`docs/decision_report.md`](decision_report.md) §3): higher cost → higher threshold →
@@ -205,10 +209,8 @@ The model output is an input to a business decision, framed in dollars
   **weeks late**, so live performance metrics are unavailable in real time — drift must
   be watched through *input* and *score* distributions (§7), not just outcomes.
 - **Dataset vintage.** A single fixed window; no multi-year seasonality or regime change.
-- **Synthetic fixture.** All numbers here are synthetic and illustrative until the
-  pipeline is rerun on the real IEEE-CIS data.
-- **Small-sample monitoring.** On the ~125-row synthetic weekly batches, value-capture is
-  noisy; the breach logic guards on minimum fraud counts. Real weekly volumes remove this.
+- **No fairness assessment.** The dataset lacks protected-attribute labels; no fairness
+  evaluation is claimed. A production deployment would require one.
 
 ---
 
@@ -217,11 +219,11 @@ The model output is an input to a business decision, framed in dollars
 Implemented in [`monitoring/`](../monitoring/); published to GitHub Pages `/monitoring/`
 by a daily cron ([`.github/workflows/monitoring.yml`](../.github/workflows/monitoring.yml)).
 
-- **What is monitored.** Per simulated week: Evidently data/prediction drift, explicit
-  **PSI** over the top dense input features and the **score distribution**, and
-  performance on labels (with the label-lag caveat). Causal aggregates are excluded from
-  drift PSI (they grow structurally with history; [`docs/decisions.md`](decisions.md)
-  D-008).
+- **What is monitored.** Per simulated week (≈7.4k transactions): Evidently data/prediction
+  drift, explicit **PSI** over the top dense input features and the **score distribution**,
+  and performance on labels (with the label-lag caveat). Causal aggregates are excluded
+  from drift PSI (they grow structurally with history;
+  [`docs/decisions.md`](decisions.md) D-008).
 - **Breach thresholds → automated GitHub Issue.** (1) PSI **> 0.2** on any tracked
   feature; (2) Evidently flags dataset drift; (3) value-capture at the operating point
   **down > 10%** vs baseline. The alert path is verified by a forced-breach test
@@ -256,7 +258,7 @@ by a daily cron ([`.github/workflows/monitoring.yml`](../.github/workflows/monit
   [`docs/decisions.md`](decisions.md).
 - **Effective challenge.** Each development phase was subjected to an adversarial,
   reproduction-driven review; findings and fixes are logged (D-004, Phase C tie-block,
-  Phase D serving hardening).
+  Phase D serving hardening, D-009 R reconciliation).
 
 ---
 

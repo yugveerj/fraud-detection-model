@@ -1,8 +1,7 @@
 # Model card — `fraud-scoring`
 
-Standard model-card fields (Mitchell et al.). All figures are **synthetic /
-illustrative** (built without Kaggle credentials on a schema-identical fixture); they
-reproduce the real IEEE-CIS results with one command once data is supplied.
+Standard model-card fields (Mitchell et al.). Figures are computed on the **real Kaggle
+IEEE-CIS Fraud Detection data** (590,540 transactions).
 
 ## Model details
 - **Name / version:** `fraud-scoring`, MLflow registry **v1** (run id embedded in the
@@ -25,14 +24,14 @@ reproduce the real IEEE-CIS results with one command once data is supplied.
   segmented **by `TransactionDT`**: TRAIN 60% / VALIDATION 15% / HOLDOUT 25%.
   Manifest: [`docs/data_manifest.md`](data_manifest.md). Class balance ≈ 3.5% fraud.
 
-## Evaluation & metrics (HOLDOUT, synthetic)
+## Evaluation & metrics (HOLDOUT, 147,635 transactions)
 | metric | value |
 | --- | --- |
-| PR-AUC (primary) | 0.308 |
-| ROC-AUC | 0.909 |
-| Brier | 0.0228 |
-| operating point | 35.9% fraud value captured @ 1.65% FPR |
-| net value | ≈ $236k / 100k transactions (review cost $25) |
+| PR-AUC (primary) | 0.463 |
+| ROC-AUC | 0.885 |
+| Brier (calibrated; 0.071 uncalibrated) | 0.0236 |
+| operating point | 47.5% fraud value captured @ 3.44% FPR (recall 53.8%) |
+| net value | ≈ $125k / 100k transactions (review cost $25) |
 
 Threshold optimized on VALIDATION, frozen, reported on HOLDOUT. Independently reproduced
 in R ([`docs/validation_r/`](validation_r/replication.Rmd)). Full grid + leakage

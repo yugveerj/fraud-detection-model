@@ -12,12 +12,11 @@ output:
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 8, fig.height = 4.5)
 ```
 
-> **Replayed simulation on a static public dataset — synthetic fixture.** These numbers
-> reproduce the developer's *synthetic* results; on real IEEE-CIS data the same script
-> reconciles the real numbers. This document is the independent "effective challenge":
+> **Real IEEE-CIS holdout.** This document is the independent "effective challenge":
 > it recomputes the developer's holdout metrics **in R, with no imports from the Python
 > codebase**, from a single exported file `holdout_scores.csv`
-> (`TransactionID, isFraud, calibrated_proba, TransactionAmt`).
+> (`TransactionID, isFraud, calibrated_proba, TransactionAmt`) — the real out-of-time
+> holdout (~148k transactions).
 
 ```{r load}
 scores <- read.csv("holdout_scores.csv")
@@ -28,8 +27,8 @@ n   <- nrow(scores)
 cat(sprintf("holdout rows: %d | frauds: %d | base rate: %.3f%%\n", n, sum(y), 100 * mean(y)))
 
 # --- Developer (Python) figures being challenged, from the repo artifacts ---
-PY <- list(pr_auc = 0.3080, roc_auc = 0.9092, brier = 0.02283,
-           threshold = 0.25, value_capture = 0.359)
+PY <- list(pr_auc = 0.4631, roc_auc = 0.8845, brier = 0.02357,
+           threshold = 0.1369, value_capture = 0.475)
 TOL <- 0.01  # absolute tolerance for reconciliation
 ```
 

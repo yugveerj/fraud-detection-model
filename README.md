@@ -8,10 +8,10 @@ a dollar-framed operating point, a deployed scoring API, replayed drift monitori
 an SR 11-7-style validation document — built and documented the way a bank's model-risk
 function would expect to review it.
 
-> **Synthetic-data caveat.** This build ran without Kaggle credentials, so every number
-> below is from a **schema-identical synthetic fixture** (clearly labelled throughout).
-> The pipeline reproduces the **real** IEEE-CIS results with one command the moment
-> credentials are supplied — nothing about the machinery is synthetic.
+> **Data.** The numbers below are computed on the **real Kaggle IEEE-CIS Fraud Detection
+> data** (590,540 transactions). Everything reproduces with one command
+> (`uv run python -m pipeline.train --full`); with no Kaggle credentials the pipeline
+> falls back to a schema-identical synthetic fixture so tests and CI still run.
 
 ## What it does
 
@@ -28,23 +28,26 @@ flowchart LR
   MON -->|breach| ISS[GitHub Issue]
 ```
 
-## Headline results (synthetic, illustrative)
+## Headline results (real IEEE-CIS holdout)
 
 **The leakage experiment** — same features, same model, two validation protocols
 ([full grid](docs/experiments.md)):
 
 | model | temporal-val PR-AUC | random-CV PR-AUC | inflation |
 | --- | --- | --- | --- |
-| logistic regression | 0.253 | 0.359 | **+42%** |
-| XGBoost | 0.377 | 0.470 | **+25%** |
-| LightGBM | 0.409 | 0.469 | **+15%** |
+| logistic regression | 0.496 | 0.467 | −6% |
+| XGBoost | 0.606 | 0.711 | **+17%** |
+| LightGBM | 0.621 | 0.765 | **+23%** |
 
 Random cross-validation trains on future-dated rows and reports an optimistic number.
-That inflation is why every split in this project is temporal.
+The tree models — the ones deployed — inflate **+17–23%**; the linear model, which
+doesn't exploit temporal structure, doesn't. That inflation is why every split here is
+temporal.
 
-**Holdout** (isotonic-calibrated XGBoost): PR-AUC **0.308**, ROC-AUC **0.909**, Brier
-**0.023**. **Operating point:** captures **35.9% of fraud value at 1.65% FPR** for
-**≈ $236k net per 100k transactions** (review cost $25), optimized on validation and
+**Holdout** (isotonic-calibrated XGBoost, 147,635 transactions): PR-AUC **0.463**,
+ROC-AUC **0.885**, Brier **0.024** (0.071 uncalibrated — calibration matters).
+**Operating point:** captures **47.5% of fraud value at 3.44% FPR** (recall 53.8%) for
+**≈ $125k net per 100k transactions** (review cost $25), optimized on validation and
 reported on the temporal holdout. Independently reproduced in R
 ([`docs/validation_r/`](docs/validation_r/replication.Rmd)).
 
@@ -100,6 +103,6 @@ document + model card + R replication. Serving/infra are **authored**; the publi
 ## Limitations
 
 Anonymized `V*`/`id_*` features cap interpretability; the holdout is a single out-of-time
-slice; production fraud labels lag weeks (this replay has them immediately); all numbers
-are synthetic until rerun on real data. Full treatment:
+slice; production fraud labels lag weeks (this replay has them immediately); no fairness
+assessment (the dataset lacks protected attributes). Full treatment:
 [validation report §6](docs/validation_report.md#6-limitations).

@@ -1,11 +1,11 @@
 {
   "registered_model": "fraud-scoring",
   "version": "1",
-  "run_id": "a9efb4fe985a44b5afd5413d70329672",
-  "model_uri": "models:/m-ea34d82ca4c54b97a6ebb35d9f82e73f",
+  "run_id": "0f5d0e01786b4bfb84a86208fe5e45ff",
+  "model_uri": "models:/m-f32c0bc131534addb426d77a6f751c71",
   "calibration": "isotonic",
   "model_type": "isotonic-calibrated XGBoost pipeline",
-  "provenance": "synthetic",
+  "provenance": "real",
   "profile": "full",
   "feature_columns": {
     "numeric": [
@@ -397,6 +397,18 @@
       "id_09",
       "id_10",
       "id_11",
+      "id_13",
+      "id_14",
+      "id_17",
+      "id_18",
+      "id_19",
+      "id_20",
+      "id_21",
+      "id_22",
+      "id_24",
+      "id_25",
+      "id_26",
+      "id_32",
       "amt_log",
       "amt_cents",
       "amt_is_round",
@@ -437,10 +449,10 @@
       "DeviceType"
     ]
   },
-  "operating_threshold": 0.25,
-  "holdout_brier": 0.02283104494125711,
-  "holdout_pr_auc": 0.3079621631316788,
-  "created_at": "2026-07-06T23:02:57+00:00",
-  "note": "Trained on SYNTHETIC data \u2014 placeholder; retrain on real IEEE-CIS.",
+  "operating_threshold": 0.1369047462940216,
+  "holdout_brier": 0.02357177850053642,
+  "holdout_pr_auc": 0.46311412648777667,
+  "created_at": "2026-07-06T23:53:15+00:00",
+  "note": "Trained on real IEEE-CIS data.",
   "review_cost": 25.0
 }
