@@ -96,6 +96,6 @@ Global importance on the base gradient-boosted model (TreeExplainer). **Caveat:*
 ## 6. Limitations
 
 - Anonymized features cap semantic interpretation (above).
-- Holdout is a single out-of-time slice; live performance depends on drift, tracked by the monitoring layer (Section 6).
+- Holdout is a single out-of-time slice; live performance depends on drift, tracked by the monitoring layer (validation report Section 7).
 - Fraud labels arrive weeks late in production; this replay has them immediately — the label-lag caveat travels with every number that leaves the repo.
 

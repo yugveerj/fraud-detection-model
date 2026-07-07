@@ -10,9 +10,11 @@ retains the same core framework — conceptual soundness, ongoing monitoring, ou
 analysis, and effective challenge — while emphasizing a **risk-based approach tailored to
 the institution's model-risk profile**. This report mirrors those concerns, not
 boilerplate, and cites this repository's real artifacts throughout. **Scope note:**
-gradient-boosted models such as this one remain **fully in scope** of the revised
-guidance; SR 26-2's separate treatment of generative and agentic AI does not apply here —
-this is a conventional supervised classifier, not a GenAI system.
+gradient-boosted models such as this one remain **fully in scope** of the revised guidance
+— SR 26-2 (footnote 3) states its principles "apply to traditional statistical and
+quantitative models and non-generative, non-agentic AI models," which is exactly what this
+is. Generative and agentic AI are placed *outside* the guidance's scope; that exclusion
+does not touch this conventional supervised classifier.
 
 > **Data provenance.** Computed on the **real Kaggle IEEE-CIS Fraud Detection data**
 > (590,540 labelled transactions; integrity manifest

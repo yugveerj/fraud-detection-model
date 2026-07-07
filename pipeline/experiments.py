@@ -3,7 +3,8 @@
 Runs LR / XGBoost / LightGBM under two protocols — the honest **temporal** split and
 a 5-fold **random CV** (the leakage anti-pattern, labelled as such) — quantifying the
 optimism the random protocol buys. Calibrates the production GBM (isotonic vs Platt) on
-VALIDATION and reports Brier/reliability on HOLDOUT. Registers the calibrated XGBoost.
+VALIDATION and reports Brier/reliability on HOLDOUT. Registers the calibrated production
+GBM (isotonic champion + Platt challenger).
 
 Every run is logged to a local MLflow tracking store; the grid is exported to
 ``docs/experiments.md``. On the synthetic fixture the numbers are illustrative and

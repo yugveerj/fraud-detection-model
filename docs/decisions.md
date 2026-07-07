@@ -79,14 +79,18 @@ Running record of consequential choices, their rationale, and pre-authorized
 fallbacks taken (PROJECT_SPEC.md Section 10). Newest first.
 
 ## D-009 — R replication surfaced (and reconciled) two tie-handling discrepancies (Phase F)
-The independent R "effective challenge" ([docs/validation_r/replication.Rmd]) initially
-disagreed with the Python holdout metrics: PR-AUC R 0.337 vs Python 0.308, and ROC-AUC
-off too. Root cause: isotonic calibration produces large **tied-probability** blocks, and
-naive per-row precision/recall (and per-row trapezoidal ROC) mishandle ties. Fixes:
-tie-aware average precision (collapse to distinct thresholds, matching sklearn) and
-rank-based Mann-Whitney ROC-AUC. Both then reconcile exactly (0.3080, 0.9092); Brier and
-value-capture matched from the start. Documented as a findings note in the Rmd — exactly
-the subtle metric-definition issue an independent challenge is meant to catch. Also:
+The independent R "effective challenge"
+([docs/validation_r/replication.Rmd](validation_r/replication.Rmd)) initially disagreed
+with the Python holdout metrics: a naive per-row R average precision gave PR-AUC 0.4753 vs
+Python 0.4642, and per-row trapezoidal ROC-AUC was off too. Root cause: isotonic
+calibration produces large **tied-probability** blocks, and naive per-row precision/recall
+(and per-row trapezoidal ROC) mishandle ties. Fixes: tie-aware average precision (collapse
+to distinct thresholds, matching sklearn) and rank-based Mann-Whitney ROC-AUC. Both then
+reconcile exactly (PR-AUC 0.4642, ROC-AUC 0.8788); Brier and value-capture matched from
+the start. On the LightGBM champion the naive-AP gap (0.011) **exceeds** the 0.01
+reconciliation tolerance, so the tie fix is essential here, not cosmetic. Documented as a
+findings note in the Rmd — exactly the subtle metric-definition issue an independent
+challenge is meant to catch. Also:
 `holdout_scores.csv` (id/label/proba/amount) is gitignored so real transaction rows are
 never committed; only the rendered `replication.html` (with results) enters the repo.
 

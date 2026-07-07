@@ -12,6 +12,7 @@ every page and every number.
 
 from __future__ import annotations
 
+import re
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -222,10 +223,32 @@ def _evidently_report(ctx: MonitorContext, batch: pd.DataFrame, out_path: Path) 
         report = Report(metrics=[DataDriftPreset()])
         res = report.run(current_data=cur, reference_data=ref)
         res.save_html(str(out_path))
+        _inject_banner(out_path)  # honesty label travels with this standalone drift page
         return _extract_dataset_drift(res.dict())
     except Exception as exc:  # noqa: BLE001 - Evidently is a best-effort enhancement
         out_path.write_text(f"<p>Evidently report unavailable: {exc}</p>", encoding="utf-8")
         return False
+
+
+def _inject_banner(path: Path) -> None:
+    """Prepend the replay-simulation honesty banner to a saved Evidently HTML page, so the
+    standalone report (linked one click from the week page) can't be read without the label."""
+    try:
+        html = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    if BANNER in html:
+        return
+    banner = (
+        '<div style="background:#fff3cd;border:1px solid #ffca2c;border-radius:6px;'
+        "padding:.5rem .8rem;margin:.5rem;font:14px -apple-system,BlinkMacSystemFont,"
+        f'sans-serif;color:#4d3800">{BANNER}</div>'
+    )
+    if re.search(r"<body[^>]*>", html):
+        html = re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + banner, html, count=1)
+    else:
+        html = banner + html
+    path.write_text(html, encoding="utf-8")
 
 
 def _extract_dataset_drift(result: dict) -> bool:

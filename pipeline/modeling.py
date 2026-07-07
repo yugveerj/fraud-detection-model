@@ -4,7 +4,7 @@ Every model is a scikit-learn ``Pipeline(preprocessor, estimator)`` so training,
 prediction, and calibration share one interface. Class imbalance is handled with
 cost-sensitive weights (``scale_pos_weight`` / ``class_weight='balanced'``) — never
 SMOTE (see docs/decisions.md D-001). The registered production model is the
-calibrated XGBoost.
+calibrated LightGBM (``PRODUCTION_MODEL``; promoted from XGBoost per D-011).
 """
 
 from __future__ import annotations
