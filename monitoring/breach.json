@@ -1,0 +1,7 @@
+{
+  "week": 0,
+  "breaches": [
+    "Evidently flagged dataset drift",
+    "value-capture down 44% vs baseline"
+  ]
+}

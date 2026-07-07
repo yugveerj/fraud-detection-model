@@ -1,0 +1,21 @@
+<!doctype html><meta charset=utf-8><title>Drift monitoring — replayed</title>
+<style>
+body{font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}
+.banner{background:#fff3cd;border:1px solid #ffca2c;border-radius:6px;padding:.5rem .8rem;margin-bottom:1rem;font-size:.9rem}
+table{border-collapse:collapse;width:100%;margin:.5rem 0 1.5rem;font-size:.9rem}
+th,td{border-bottom:1px solid #ddd;padding:.4rem .5rem;text-align:left}
+th{color:#555}
+tr.breach{background:#fdecea}
+.alert{background:#fdecea;border:1px solid #e45756;color:#a11;border-radius:6px;padding:.5rem .8rem;margin:1rem 0;font-weight:600}
+.ok{color:#3a7d34;margin:1rem 0}
+.caveat,.meta{color:#666;font-size:.85rem;font-weight:normal}
+a{color:#4c78a8}
+</style>
+<div class=banner>Replayed simulation on a static public dataset — not live production monitoring.</div>
+<h1>Fraud model — replayed drift monitoring</h1>
+<p class=meta>provenance <b>synthetic</b> · cadence: one simulated week per scheduled run · Active replay.</p>
+<p>Each run replays the next holdout slice, scores it with the deployed model, and reports
+Evidently + PSI drift and label performance. Breach rule: PSI &gt; 0.2, Evidently dataset
+drift, or value-capture down &gt;10% vs baseline → a GitHub Issue is opened.</p>
+<table><tr><th>week</th><th>rows</th><th>fraud rate</th><th>PR-AUC</th>
+<th>value capture</th><th>max PSI</th><th>status</th></tr><tr class='breach'><td><a href='week-00/report.html'>week 00</a></td><td>125</td><td>4.000%</td><td>0.4589</td><td>46.3%</td><td>0.1431</td><td>⚠ Evidently flagged dataset drift; value-capture down 44% vs baseline</td></tr></table>

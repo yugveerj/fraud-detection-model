@@ -1,0 +1,25 @@
+{
+  "provenance": "synthetic",
+  "n_batches": 10,
+  "cursor": 1,
+  "baseline_value_capture": 0.8294161194382547,
+  "history": [
+    {
+      "index": 0,
+      "dt_min": 839357,
+      "dt_max": 862822,
+      "rows": 125,
+      "fraud_rate": 0.04,
+      "pr_auc": 0.4589,
+      "value_capture": 0.463,
+      "vc_degradation": 0.4418,
+      "max_psi": 0.1431,
+      "evidently_drift": true,
+      "breaches": [
+        "Evidently flagged dataset drift",
+        "value-capture down 44% vs baseline"
+      ]
+    }
+  ],
+  "frozen": false
+}
