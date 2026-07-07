@@ -147,19 +147,20 @@ if (all(recon$within_tol)) {
 ### Findings note — a discrepancy that reconciled
 
 A first-pass R implementation of average precision (evaluating precision/recall
-**per row**) gave PR-AUC ≈ 0.337 against the developer's 0.308 — **beyond tolerance**.
-Root cause: isotonic calibration produces large blocks of **tied** probabilities, and
-per-row evaluation double-counts precision within a tie block. scikit-learn (and the
-corrected R above) evaluate precision/recall at **distinct thresholds**, collapsing
-ties. With tie-aware AP the figures reconcile exactly (0.3080). A parallel issue affected
-ROC-AUC — per-row trapezoidal integration also mishandles ties, so the rank-based
-(Mann-Whitney, average-rank) form is used and reconciles exactly (0.9092). Brier and
-value-capture were unaffected (they do not depend on within-tie ordering). This is the
-value of an independent challenge: it surfaced two subtle tie-handling issues in the
-metric definitions that a shared codebase would have hidden.
+**per row**) gives PR-AUC 0.4704 against the developer's 0.4631 — the right ballpark but
+the wrong method. Root cause: isotonic calibration produces blocks of **tied**
+probabilities, and per-row evaluation double-counts precision within a tie block.
+scikit-learn (and the corrected R above) evaluate precision/recall at **distinct
+thresholds**, collapsing ties; with tie-aware AP the figure reconciles exactly (0.4631).
+A parallel issue affected ROC-AUC — per-row trapezoidal integration also mishandles ties,
+so the rank-based (Mann-Whitney, average-rank) form is used and reconciles exactly
+(0.8845). Here the per-row error stays within the 0.01 tolerance, but on data with larger
+tie blocks (e.g. the synthetic fixture, where the gap was 0.34 vs 0.31) it exceeds it —
+either way it is a genuine metric-definition bug. Brier and value-capture were unaffected
+(they do not depend on within-tie ordering). This is the value of an independent
+challenge: it surfaces subtle tie-handling issues a shared codebase would have hidden.
 
 **Effective challenge conclusion.** The independent R recomputation of PR-AUC, ROC-AUC,
-Brier, and value-capture-at-threshold reproduces the developer's holdout results from
-the exported scores alone, with no shared code, once the tie-handling above is applied.
-(Numbers are synthetic; the procedure is what a validation team applies to the real
-results.)
+Brier, and value-capture-at-threshold reproduces the developer's real-holdout results
+from the exported scores alone, with no shared code, once the tie-handling above is
+applied.
