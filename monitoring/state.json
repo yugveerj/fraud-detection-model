@@ -1,7 +1,7 @@
 {
   "provenance": "real",
   "n_batches": 20,
-  "cursor": 2,
+  "cursor": 3,
   "baseline_value_capture": 0.4782431251450506,
   "history": [
     {
@@ -30,6 +30,19 @@
       "value_capture": 0.6152,
       "vc_degradation": -0.2864,
       "max_psi": 0.1655,
+      "evidently_drift": false,
+      "breaches": []
+    },
+    {
+      "index": 2,
+      "dt_min": 11725727,
+      "dt_max": 11977154,
+      "rows": 7382,
+      "fraud_rate": 0.03143,
+      "pr_auc": 0.476,
+      "value_capture": 0.6416,
+      "vc_degradation": -0.3416,
+      "max_psi": 0.078,
       "evidently_drift": false,
       "breaches": []
     }
