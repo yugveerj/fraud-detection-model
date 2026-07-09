@@ -1,0 +1,23 @@
+{
+  "metric": "PR-AUC",
+  "rows": [
+    {
+      "model": "Logistic reg.",
+      "temporal": 0.4962,
+      "random_cv": 0.4669,
+      "inflation": -5.9
+    },
+    {
+      "model": "XGBoost",
+      "temporal": 0.6057,
+      "random_cv": 0.7105,
+      "inflation": 17.3
+    },
+    {
+      "model": "LightGBM",
+      "temporal": 0.6207,
+      "random_cv": 0.7646,
+      "inflation": 23.2
+    }
+  ]
+}
