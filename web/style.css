@@ -834,6 +834,7 @@ code {
 .half .chart {
   display: flex;
   flex-direction: column;
+  min-width: 0; /* let overflow-x:auto scroll instead of blowing out the grid column */
 }
 .half .chart-data {
   margin-top: auto;
@@ -1120,6 +1121,7 @@ a {
   .leak-plot,
   .rel-plot {
     overflow-x: auto;
+    aspect-ratio: auto;
   }
   .leak-plot svg,
   .rel-plot svg {
