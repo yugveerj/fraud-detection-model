@@ -127,7 +127,8 @@ Experiment grid (each an MLflow run with params/metrics/artifacts):
 4. Each of the above under BOTH protocols: temporal split (real) and 5-fold
    random CV (leakage demonstration only)
 5. Calibration: isotonic (default) vs Platt on VALIDATION; report Brier +
-   reliability curves; calibrated XGBoost becomes the registered model
+   reliability curves; the calibrated champion becomes the registered model
+   (a priori XGBoost; **LightGBM was promoted on validation — decisions D-011**)
 Registry: final model registered with version + run id; the serving artifact
 embeds both and `/healthz` reports them.
 

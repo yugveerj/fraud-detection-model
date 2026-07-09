@@ -1,0 +1,39 @@
+name: Publish demo (pages only)
+
+# Publishes the committed web/ directory to gh-pages exactly as tested — no serving-bundle
+# rebuild, no Lambda touch. The numbers in web/metrics.json and web/curves/*.json are
+# CI-drift-guarded against the committed artifacts (tests/test_web_metrics.py,
+# tests/test_web_curves.py), so publishing the committed files IS publishing fresh data.
+# Use deploy.yml when the scoring image itself must change.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish to gh-pages
+
+concurrency:
+  group: pages-demo
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wire the live API URL into the demo
+        run: |
+          sed -i "s#__FRAUD_API_BASE__#${{ vars.API_BASE }}#g" web/config.js
+          grep -q "${{ vars.API_BASE }}" web/config.js
+
+      - name: Publish web/ to gh-pages (preserves /monitoring/)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web
+          keep_files: true
+
+      - name: Smoke-check the published page
+        run: |
+          sleep 20
+          curl -fsS "${{ vars.DEMO_URL }}" | grep -q "frozen" && echo "new demo live"

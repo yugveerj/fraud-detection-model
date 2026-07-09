@@ -60,7 +60,7 @@ Global importance on the base gradient-boosted model (TreeExplainer). **Caveat:*
 
 ### Case studies (HOLDOUT)
 
-**Fraud** — actual label 1, calibrated P(fraud) 1.000, amount $100.00 → **ALERT** at threshold 0.122.
+**Fraud** — actual label 1, calibrated P(fraud) 1.000, amount $100.00 → **ALERT** at threshold 0.122. (an isotonic upper-bin value — the calibrator's top bin is saturated, so this is that bin's empirical fraud rate, not a claim of certainty)
 
 | feature | value | SHAP |
 | --- | --- | --- |

@@ -2,11 +2,10 @@
 
 **The objective here is decision quality and validation rigor — not leaderboard AUC.**
 This project is deliberately *not* tuned to, compared against, or benchmarked on the
-Kaggle IEEE-CIS leaderboard. It treats the model as the easy part and the decisions
-around it as the product: leakage-proof temporal validation, calibrated probabilities,
-a dollar-framed operating point, a deployed scoring API, replayed drift monitoring, and
-an SR 11-7-style validation document — built and documented the way a bank's model-risk
-function would expect to review it.
+Kaggle IEEE-CIS leaderboard. The work is in the decisions around the model, not the model
+alone: leakage-proof temporal validation, calibrated probabilities, a dollar-framed
+operating point, a demonstration scoring API, replayed drift monitoring, and an
+SR 11-7-style validation document — structured around model-risk review practice.
 
 > **Data.** The numbers below are computed on the **real Kaggle IEEE-CIS Fraud Detection
 > data** (590,540 transactions). Everything reproduces with one command
@@ -16,8 +15,8 @@ function would expect to review it.
 ## Live
 
 - **Demo:** <https://yugveerj.github.io/fraud-detection-model/> — score three preset
-  transactions against the deployed model (calibrated probability, dollar-framed
-  decision, live SHAP factors).
+  transactions against the live demonstration API (calibrated probability, dollar-framed
+  decision, SHAP factors).
 - **API:** `https://mrx6i8np6k.execute-api.us-east-2.amazonaws.com` — `GET /healthz`,
   `POST /score` (pydantic-validated). Deployed on AWS Lambda + API Gateway via Terraform
   ([`infra/`](infra/)): arm64/Graviton, throttled, billing-alarmed, scale-to-zero

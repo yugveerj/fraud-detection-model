@@ -18,6 +18,7 @@ import warnings
 from pathlib import Path
 
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -33,6 +34,7 @@ REPORT_PATH = REPO_ROOT / "docs" / "decision_report.md"
 ARTIFACT_DIR = REPO_ROOT / "artifacts"
 OPERATING_POINT_PATH = ARTIFACT_DIR / "operating_point.json"
 MODEL_META_PATH = ARTIFACT_DIR / "model" / "metadata.json"
+CURVES_DIR = ARTIFACT_DIR / "curves"  # chart series for the demo (tooling/build_web_curves)
 SHAP_SAMPLE = 1000
 
 
@@ -73,6 +75,7 @@ def run_report(source: str = "auto", review_cost: float = 25.0, profile: str = "
 
     cases = _shap_section(base, sp.holdout, p_hold, y_hold, amt_hold, op["threshold"])
     _export_holdout_scores(sp.holdout, y_hold, p_hold, amt_hold)
+    _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p_hold_base, p_hold)
 
     report = _render_report(
         ds.provenance,
@@ -301,10 +304,18 @@ def _render_report(
     ]
     for c in cases:
         decision = "ALERT" if c.proba >= op["threshold"] else "pass"
+        # Isotonic's top bin saturates at 1.0; flag a rounded-1.000 score so a reviewer
+        # reads it as a calibrated bin rate, not a suspicious claim of certainty.
+        note = (
+            " (an isotonic upper-bin value — the calibrator's top bin is saturated, so this"
+            " is that bin's empirical fraud rate, not a claim of certainty)"
+            if c.proba >= 0.9995
+            else ""
+        )
         lines += [
             f"**{c.kind.title()}** — actual label {c.label}, calibrated P(fraud) "
             f"{c.proba:.3f}, amount ${c.amount:,.2f} → **{decision}** at threshold "
-            f"{op['threshold']:.3f}.",
+            f"{op['threshold']:.3f}.{note}",
             "",
             "| feature | value | SHAP |",
             "| --- | --- | --- |",
@@ -342,6 +353,73 @@ def _export_holdout_scores(holdout, y_hold, p_hold, amt_hold):
             "TransactionAmt": amt_hold,
         }
     ).to_csv(out, index=False)
+
+
+def _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p_hold_base, p_hold):
+    """Chart series for the demo page (tooling/build_web_curves assembles web/curves/).
+
+    - net_value.json: net value per 100k vs threshold on VALIDATION (where the operating
+      point is optimized), downsampled. The frozen point carries BOTH the validation peak
+      and the holdout realization at that same threshold — the val→holdout gap is the
+      out-of-time drift, shown honestly rather than hidden.
+    - reliability.json: holdout reliability bins, uncalibrated vs isotonic.
+    - score_histogram.json: 64-bin histogram of the holdout calibrated scores — the demo
+      hero renders this as the mark-field the frozen threshold visibly cuts. Real counts,
+      not a sampling sketch.
+    """
+    CURVES_DIR.mkdir(parents=True, exist_ok=True)
+
+    nv = decisions.net_value_curve(y_val, p_val, amt_val, review_cost).sort_values(
+        "threshold", kind="stable"
+    )
+    step = max(1, len(nv) // 180)
+    pts = nv.iloc[::step]
+    net = {
+        "basis": "validation",
+        "n": int(len(y_val)),
+        "review_cost": review_cost,
+        "series": [
+            {"t": round(float(t), 5), "net": round(float(v))}
+            for t, v in zip(pts["threshold"], pts["net_per_100k"], strict=True)
+        ],
+        "op": {
+            "t": round(float(op["threshold"]), 5),
+            "net_val": round(float(op["net_per_100k"])),
+            "net_holdout": round(float(hold_stats["net_per_100k"])),
+        },
+    }
+    (CURVES_DIR / "net_value.json").write_text(json.dumps(net, indent=2), encoding="utf-8")
+
+    mp_u, of_u, _ = metrics.reliability_curve(y_hold, p_hold_base, n_bins=8)
+    mp_c, of_c, _ = metrics.reliability_curve(y_hold, p_hold, n_bins=8)
+    rel = {
+        "basis": "holdout",
+        "n_bins": 8,
+        "uncalibrated": [
+            {"pred": round(float(a), 5), "emp": round(float(b), 5)}
+            for a, b in zip(mp_u, of_u, strict=True)
+        ],
+        "isotonic": [
+            {"pred": round(float(a), 5), "emp": round(float(b), 5)}
+            for a, b in zip(mp_c, of_c, strict=True)
+        ],
+    }
+    (CURVES_DIR / "reliability.json").write_text(json.dumps(rel, indent=2), encoding="utf-8")
+
+    counts, edges = np.histogram(np.asarray(p_hold, dtype=float), bins=64, range=(0.0, 1.0))
+    hist = {
+        "basis": "holdout",
+        "n": int(len(p_hold)),
+        "bins": [
+            {
+                "lo": round(float(edges[i]), 5),
+                "hi": round(float(edges[i + 1]), 5),
+                "count": int(c),
+            }
+            for i, c in enumerate(counts)
+        ],
+    }
+    (CURVES_DIR / "score_histogram.json").write_text(json.dumps(hist, indent=2), encoding="utf-8")
 
 
 def _persist_operating_point(op, hold, prov, review_cost):
