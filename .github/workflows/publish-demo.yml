@@ -35,5 +35,11 @@ jobs:
 
       - name: Smoke-check the published page
         run: |
-          sleep 20
-          curl -fsS "${{ vars.DEMO_URL }}" | grep -q "frozen" && echo "new demo live"
+          # Pages CDN propagation can take a couple of minutes; retry before failing.
+          for i in $(seq 1 12); do
+            if curl -fsS "${{ vars.DEMO_URL }}?smoke=$i" | grep -q "frozen threshold"; then
+              echo "new demo live (attempt $i)"; exit 0
+            fi
+            echo "attempt $i: not propagated yet"; sleep 15
+          done
+          echo "page did not propagate in time" >&2; exit 1
