@@ -49,9 +49,14 @@ def leakage() -> dict:
 
 
 def build() -> dict:
+    op = json.loads((REPO_ROOT / "artifacts" / "operating_point.json").read_text())
+    net_value = json.loads((CURVES_DIR / "net_value.json").read_text())
+    # the E1 foot's sample size hydrates from here — never hardcoded in the page
+    net_value["n"] = int(op["validation"]["n"])
     return {
-        "net_value": json.loads((CURVES_DIR / "net_value.json").read_text()),
+        "net_value": net_value,
         "reliability": json.loads((CURVES_DIR / "reliability.json").read_text()),
+        "score_histogram": json.loads((CURVES_DIR / "score_histogram.json").read_text()),
         "leakage": leakage(),
     }
 
@@ -63,11 +68,13 @@ def main() -> int:
         (OUT_DIR / f"{name}.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     op = curves["net_value"]["op"]
     leak = "  ".join(f"{r['model']} {r['inflation']:+.1f}%" for r in curves["leakage"]["rows"])
-    print("Wrote web/curves/{net_value,reliability,leakage}.json")
+    hist = curves["score_histogram"]
+    print("Wrote web/curves/{net_value,reliability,score_histogram,leakage}.json")
     print(
         f"  net_value: {len(curves['net_value']['series'])} pts, op val ${op['net_val']:,} / holdout ${op['net_holdout']:,}"
     )
     print(f"  reliability: {len(curves['reliability']['isotonic'])} isotonic bins")
+    print(f"  score_histogram: {len(hist['bins'])} bins over n={hist['n']:,}")
     print(f"  leakage: {leak}")
     return 0
 

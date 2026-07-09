@@ -3,179 +3,274 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fraud scoring — model decision &amp; validation record</title>
+    <title>Fraud-Scoring — one frozen threshold</title>
     <meta
       name="description"
-      content="A calibrated fraud-detection model turns a probability into a review/approve decision at a frozen, dollar-optimized threshold — with the validation evidence behind it. Non-production demonstration on the public IEEE-CIS dataset."
+      content="A calibrated fraud model, one frozen dollar-optimized threshold, and the validation evidence behind it. Every claim, chart, and live score on this page is placed against the same line. Non-production demonstration on the public IEEE-CIS dataset."
     />
-    <link rel="preload" href="fonts/archivo-800.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/archivo-vf.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/plex-mono-400.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/plex-mono-600.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="preload" href="fonts/plex-sans-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/plex-sans-500.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="style.css?v=fr7" />
   </head>
   <body>
-    <main class="doc">
-      <!-- ── masthead ─────────────────────────────────────────────── -->
-      <header class="masthead">
-        <div class="mast-row">
-          <div class="mast-id">
-            <h1 class="mast-title">Fraud&#8209;Scoring</h1>
-            <p class="mast-sub">Model decision &amp; validation record</p>
-          </div>
-          <span class="status">Non&#8209;production</span>
-        </div>
-        <dl class="fields" id="fields"><!-- model / registry / calibration / basis --></dl>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="guides" aria-hidden="true">
+      <span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span>
+      <span>G</span><span>H</span><span>I</span><span>J</span><span>K</span><span>L</span>
+    </div>
+
+    <div class="frame">
+      <!-- ── ledger strip ─────────────────────────────────────────── -->
+      <header class="ledger" role="banner">
+        <span class="ledger-id">FRAUD&#8209;SCORING · DECISION &amp; VALIDATION RECORD</span>
+        <span class="ledger-live">
+          <span class="seg">YUGVEER · <a href="https://github.com/yugveerj" rel="author">GITHUB ↗</a> ·
+            <a href="mailto:yugkots@gmail.com">EMAIL ↗</a></span>
+          <span class="seg"><span class="ledger-sep" aria-hidden="true">/</span> <span id="lg-model">MODEL —</span></span>
+          <span class="seg"><span class="ledger-sep" aria-hidden="true">/</span> <span id="lg-mon">MONITORING · REPLAYED SIM</span></span>
+        </span>
       </header>
 
-      <!-- ── summary of results ───────────────────────────────────── -->
-      <section class="sect">
-        <h2 class="eyebrow"><span>Summary of results</span></h2>
-        <ol class="kpis" id="stats"><!-- injected from metrics.json --></ol>
-        <p class="note" id="results-note">
-          Isotonic-calibrated LightGBM, validated <strong>temporally</strong>; the operating
-          point is frozen on validation and reported on a held-out future slice. The
-          objective is decision quality and validation rigor — not leaderboard AUC.
-        </p>
-      </section>
-
-      <!-- ── the decision (interactive) ───────────────────────────── -->
-      <section class="sect">
-        <h2 class="eyebrow"><span>The decision</span></h2>
-        <p class="lede">
-          A calibrated probability meets a frozen, dollar-optimized <em>review threshold</em>.
-          Select a transaction — where it lands against the threshold is the decision.
-        </p>
-
-        <div class="record" id="record"><!-- frozen operating point injected --></div>
-
-        <div class="chips" id="chips" role="group" aria-label="Example transactions"></div>
-
-        <figure class="gauge">
-          <div class="gauge-scale" id="gauge-scale">
-            <div class="gauge-zone-flag" id="gauge-flag" aria-hidden="true"></div>
-            <div class="gauge-limit" id="gauge-limit" aria-hidden="true">
-              <span class="gauge-limit-tag" id="gauge-limit-tag">review threshold</span>
+      <main id="main">
+        <!-- ── hero ─────────────────────────────────────────────────── -->
+        <section class="hero" aria-labelledby="hero-h">
+          <div class="hero-grid">
+            <div class="hero-left">
+              <h1 id="hero-h" class="hero-title">Fraud&#8209;Scoring</h1>
+              <p class="hero-thesis">
+                <strong>A fraud-detection model built, validated, deployed, and monitored the
+                way a bank's model-risk team would require.</strong> A frozen, dollar-optimized
+                threshold turns each calibrated probability into <em>review</em> or
+                <em>approve</em>; everything on this page is judged against that line —
+                decision quality and validation rigor, not leaderboard&nbsp;AUC. Built
+                end-to-end by one person: data pipeline, model, live scoring API on AWS,
+                weekly drift monitoring, and the validation document.
+              </p>
             </div>
-            <div class="gauge-marker" id="gauge-marker" hidden aria-hidden="true">
-              <span class="gauge-marker-tag" id="gauge-marker-tag"></span>
+            <div class="hero-right">
+              <p class="hero-num" id="hero-num" aria-label="Review threshold: 12.2 percent">12.2%</p>
             </div>
           </div>
-          <div class="gauge-axis" aria-hidden="true">
-            <span>0%</span><span>calibrated P(fraud)</span><span>100%</span>
+          <p class="hero-sub">One frozen threshold — optimized on validation · judged on holdout
+            (data the model never saw)</p>
+
+          <figure class="field-fig">
+            <div class="scale-grid">
+              <div class="gutter gutter-field" aria-hidden="true">holdout<br />density</div>
+              <div class="plot rulewrap field-plot">
+                <canvas id="field" aria-hidden="true"></canvas>
+                <div class="rule" aria-hidden="true">
+                  <span class="rule-tag">review ≥ <b id="rule-pct">12.2%</b></span>
+                </div>
+                <p class="op-note" id="op-note"></p>
+              </div>
+            </div>
+            <div class="scale-grid">
+              <div class="gutter" aria-hidden="true"></div>
+              <div class="plot axis" data-axis aria-hidden="true"></div>
+            </div>
+            <figcaption class="field-cap scale-grid">
+              <span class="gutter" aria-hidden="true"></span>
+              <span class="plot"><span id="field-cap">the holdout score distribution — loading…</span><span>committed, drift-guarded</span></span>
+            </figcaption>
+          </figure>
+
+          <ol class="stats" id="stats"><!-- hydrated from metrics.json --></ol>
+          <p class="system">
+            SYSTEM — PYTHON · LIGHTGBM / XGBOOST · SCIKIT-LEARN · MLFLOW
+            <span class="sep">·</span>
+            <a href="https://github.com/yugveerj/fraud-detection-model/tree/main/infra">DOCKER → ECR → AWS LAMBDA + API GATEWAY (TERRAFORM) ↗</a>
+            <span class="sep">·</span>
+            <a href="https://github.com/yugveerj/fraud-detection-model/actions">GITHUB ACTIONS CI: LINT + CAUSALITY TESTS + SMOKE-TRAIN ↗</a>
+            <span class="sep">·</span>
+            <a href="https://yugveerj.github.io/fraud-detection-model/monitoring/">EVIDENTLY WEEKLY REPLAY → AUTO GITHUB ISSUE ↗</a>
+            <span class="sep">·</span>
+            <a href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_r/replication.Rmd">R REPLICATION ↗</a>
+            <span class="sep">·</span>
+            <a href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_report.pdf">VALIDATION REPORT (PDF) ↗</a>
+          </p>
+        </section>
+
+        <!-- ── the scorer ───────────────────────────────────────────── -->
+        <section class="sect" aria-labelledby="scorer-h">
+          <header class="sect-head">
+            <span class="sect-no" aria-hidden="true">S</span>
+            <div>
+              <h2 id="scorer-h">Three transactions, one line</h2>
+              <p class="sect-lede">
+                Score them against the live model. The log prints exactly where each
+                number came from — live call or cached result, never silently.
+              </p>
+            </div>
+          </header>
+
+          <div class="rows" id="rows"><!-- preset rows hydrated --></div>
+
+          <div class="scale-grid scorer-scale">
+            <div class="gutter" aria-hidden="true"></div>
+            <div class="plot rulewrap" id="scorer-plot">
+              <div class="rule" aria-hidden="true"></div>
+            </div>
           </div>
-          <figcaption class="gauge-cap" id="gauge-cap">Select a transaction to score it.</figcaption>
-        </figure>
-
-        <div class="readout" id="readout" hidden>
-          <div class="verdict" aria-live="polite">
-            <span class="stamp" id="verdict-stamp">—</span>
-            <span class="verdict-line" id="verdict-line"></span>
+          <div class="scale-grid">
+            <div class="gutter" aria-hidden="true"></div>
+            <div class="plot axis" data-axis aria-hidden="true"></div>
           </div>
-          <div class="factors">
-            <h3 class="micro">Contributions to the score</h3>
-            <ul class="bars" id="bars"></ul>
-            <p class="caveat">
-              Many inputs are anonymized (Vesta <code>V*</code> / <code>id_*</code>): factors
-              show <em>which engineered inputs</em> moved the score, not a business reason.
-              Right of centre pushes toward fraud; left, away.
-            </p>
-            <p class="meta" id="model-meta"></p>
+
+          <div class="scorer-tail">
+            <pre class="netlog" id="netlog"></pre>
+
+            <div class="verdict-wrap" id="verdict-wrap" hidden>
+              <p class="verdict" id="verdict" aria-hidden="true">—</p>
+              <p class="verdict-line" aria-live="polite" id="verdict-line"></p>
+            </div>
+
+            <div class="factors" id="factors" hidden>
+              <h3 class="micro">Contributions to the score</h3>
+              <ul class="shap" id="shap"></ul>
+              <p class="caveat">
+                Many inputs are anonymized (Vesta <code>V*</code> / <code>id_*</code>):
+                factors show <em>which engineered inputs</em> moved the score, not a business
+                reason. Right of centre pushes toward fraud; left, away.
+              </p>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ── the evidence (charts) ────────────────────────────────── -->
-      <section class="sect sect-tint">
-        <h2 class="eyebrow"><span>The evidence</span></h2>
+        <!-- ── the evidence ─────────────────────────────────────────── -->
+        <section class="sect" aria-labelledby="ev-h">
+          <header class="sect-head">
+            <span class="sect-no" aria-hidden="true">E</span>
+            <div>
+              <h2 id="ev-h">Why this line</h2>
+              <p class="sect-lede">
+                Three exhibits, all from committed, drift-guarded data. The same red rule
+                crosses the first one at the same position it holds above.
+              </p>
+            </div>
+          </header>
 
-        <figure class="chart">
-          <figcaption class="chart-head">
-            <h3>Why this threshold — net value vs. where you draw the line</h3>
-            <p class="chart-sub">
-              Net dollars per 100k transactions at every threshold, on the validation set.
-              The line is frozen at its peak (0.1215); on the held-out future slice that same
-              point returns <strong>$111k</strong>, not the validation peak — the out-of-time
-              gap, shown rather than hidden.
-            </p>
-          </figcaption>
-          <div class="chart-svg" id="svg-netvalue"></div>
-          <details class="chart-data">
-            <summary>the numbers</summary>
-            <div id="tbl-netvalue"></div>
-          </details>
-        </figure>
+          <figure class="chart" id="ch-net">
+            <figcaption class="chart-head">
+              <h3><span class="ex-no" aria-hidden="true">E1</span> Net value vs. where you draw the line</h3>
+              <p class="chart-sub" id="ch-net-sub"></p>
+            </figcaption>
+            <div class="scale-grid">
+              <div class="gutter chart-gutter" id="ch-net-y" aria-hidden="true"></div>
+              <div class="plot rulewrap" id="ch-net-plot">
+                <div class="rule" aria-hidden="true"></div>
+              </div>
+            </div>
+            <div class="scale-grid">
+              <div class="gutter" aria-hidden="true"></div>
+              <div class="plot axis" data-axis aria-hidden="true"></div>
+            </div>
+            <div class="scale-grid">
+              <span class="gutter" aria-hidden="true"></span>
+              <p class="chart-foot plot" id="ch-net-foot"></p>
+            </div>
+            <details class="chart-data"><summary>the numbers</summary><div id="tbl-net"></div></details>
+          </figure>
 
-        <figure class="chart">
-          <figcaption class="chart-head">
-            <h3>Why temporal validation — the leakage a random split hides</h3>
-            <p class="chart-sub">
-              Validation PR-AUC under an honest <strong>temporal</strong> split vs. a
-              random cross-validation that trains on future-dated rows. Random-CV is the
-              <span class="ink-flag">anti-pattern</span>: it inflates the tree models by
-              +17–23%. The linear model, which can't exploit time, barely moves.
-            </p>
-          </figcaption>
-          <div class="chart-svg" id="svg-leakage"></div>
-          <details class="chart-data">
-            <summary>the numbers</summary>
-            <div id="tbl-leakage"></div>
-          </details>
-        </figure>
+          <div class="half">
+            <figure class="chart" id="ch-leak">
+              <figcaption class="chart-head">
+                <h3><span class="ex-no" aria-hidden="true">E2</span> The leakage a random split hides</h3>
+                <p class="chart-sub">
+                  Validation PR-AUC — the precision/recall ranking score used throughout —
+                  under an honest <strong>temporal</strong> split vs. random
+                  cross-validation, which trains on future-dated rows. The anti-pattern
+                  inflates the tree models by <span class="ink-flag num" id="leak-range">+17–23%</span>;
+                  the linear model has no leak to exploit.
+                </p>
+              </figcaption>
+              <div id="ch-leak-plot" class="leak-plot"></div>
+              <details class="chart-data"><summary>the numbers</summary><div id="tbl-leak"></div></details>
+            </figure>
 
-        <figure class="chart">
-          <figcaption class="chart-head">
-            <h3>Why calibration — predicted probability vs. observed fraud rate</h3>
-            <p class="chart-sub">
-              On the holdout, the uncalibrated model is over-confident (below the diagonal);
-              isotonic calibration pulls it onto the line, so a stated probability means what
-              it says. The top isotonic bin saturates near 1.0 — an upper-bin artifact, not
-              perfect certainty.
-            </p>
-          </figcaption>
-          <div class="chart-svg" id="svg-reliability"></div>
-          <details class="chart-data">
-            <summary>the numbers</summary>
-            <div id="tbl-reliability"></div>
-          </details>
-        </figure>
-      </section>
+            <figure class="chart" id="ch-rel">
+              <figcaption class="chart-head">
+                <h3><span class="ex-no" aria-hidden="true">E3</span> Calibration, checked against reality</h3>
+                <p class="chart-sub">
+                  Predicted probability vs. observed fraud rate on the holdout. The
+                  uncalibrated model sags below the diagonal — over-confident; isotonic
+                  sits on it. <strong>No probability on this page comes from the red
+                  dots.</strong>
+                </p>
+              </figcaption>
+              <div id="ch-rel-plot" class="rel-plot"></div>
+              <details class="chart-data"><summary>the numbers</summary><div id="tbl-rel"></div></details>
+            </figure>
+          </div>
+        </section>
 
-      <!-- ── the validation package ───────────────────────────────── -->
-      <nav class="sect package" aria-label="The validation package">
-        <h2 class="eyebrow"><span>The validation package</span></h2>
-        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_report.md">
-          <span class="exhibit-name">Validation report</span>
-          <span class="exhibit-desc">SR&nbsp;11-7 / SR&nbsp;26-2-style, with independent R replication</span>
-          <span class="exhibit-arrow" aria-hidden="true">→</span>
-        </a>
-        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/decision_report.md">
-          <span class="exhibit-name">Decision report</span>
-          <span class="exhibit-desc">the dollar cost model, operating point, and SHAP</span>
-          <span class="exhibit-arrow" aria-hidden="true">→</span>
-        </a>
-        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/model_card.md">
-          <span class="exhibit-name">Model card</span>
-          <span class="exhibit-desc">one page, standard fields</span>
-          <span class="exhibit-arrow" aria-hidden="true">→</span>
-        </a>
-        <a class="exhibit" href="https://github.com/yugveerj/fraud-detection-model">
-          <span class="exhibit-name">Source &amp; monitoring</span>
-          <span class="exhibit-desc">the repository, tests, and replayed drift dashboard</span>
-          <span class="exhibit-arrow" aria-hidden="true">→</span>
-        </a>
-      </nav>
+        <!-- ── conditions ───────────────────────────────────────────── -->
+        <section class="sect conditions" aria-labelledby="cond-h">
+          <header class="sect-head">
+            <span class="sect-no" aria-hidden="true">C</span>
+            <div>
+              <h2 id="cond-h">Conditions of these numbers</h2>
+              <p class="sect-lede">Read them the way they are printed: as part of the record.</p>
+            </div>
+          </header>
+          <ol class="clauses">
+            <li>
+              <span class="clause-no" aria-hidden="true">01</span>
+              <p><strong>Non-production demonstration</strong> on the public IEEE-CIS research
+              dataset. No real transaction is scored and no real decision is made here.</p>
+            </li>
+            <li>
+              <span class="clause-no" aria-hidden="true">02</span>
+              <p><strong>The drift monitoring is a replayed simulation</strong> on a static
+              dataset — the stream is history replayed weekly, not live traffic, and every
+              monitoring page says so.</p>
+            </li>
+            <li>
+              <span class="clause-no" aria-hidden="true">03</span>
+              <p><strong>Real fraud labels arrive weeks late.</strong> This replay has labels
+              immediately; a production deployment would watch input and score drift while
+              outcome metrics trail.</p>
+            </li>
+            <li>
+              <span class="clause-no" aria-hidden="true">04</span>
+              <p><strong>The threshold was optimized on validation and is judged on
+              holdout.</strong> The <span id="cond-gap" class="num">$250,929 → $111,346</span> bracket in
+              E1 is the out-of-time cost of that honesty — reported, not hidden.</p>
+            </li>
+          </ol>
+        </section>
 
-      <footer class="colophon">
-        <p>
-          <strong>Demonstration system</strong> on a public research dataset (IEEE-CIS) — not a
-          production fraud decision. Probabilities are calibrated; the operating point is
-          optimized on a validation slice and reported on a temporal holdout. The drift
-          monitoring is a replayed simulation on a static dataset, and real fraud labels
-          arrive weeks late — caveats that travel with every number here.
-        </p>
-      </footer>
-    </main>
+        <!-- ── colophon ─────────────────────────────────────────────── -->
+        <footer class="colophon">
+          <nav class="docs" aria-label="The validation package">
+            <a href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/validation_report.md">
+              <span>Validation report ↗</span><span class="docs-sub">SR&nbsp;11-7 / SR&nbsp;26-2-style, with independent R replication</span>
+            </a>
+            <a href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/decision_report.md">
+              <span>Decision report ↗</span><span class="docs-sub">the dollar cost model, operating point, and SHAP</span>
+            </a>
+            <a href="https://github.com/yugveerj/fraud-detection-model/blob/main/docs/model_card.md">
+              <span>Model card ↗</span><span class="docs-sub">one page, standard fields</span>
+            </a>
+            <a href="https://github.com/yugveerj/fraud-detection-model">
+              <span>Source &amp; monitoring ↗</span><span class="docs-sub">repository, tests, and the replayed drift dashboard</span>
+            </a>
+          </nav>
+          <p class="colophon-line">
+            Every number above hydrates from committed, CI-guarded JSON — a retrain that
+            shifts a figure fails the build rather than shipping a stale page.
+            Built end-to-end by Yugveer —
+            <a href="https://github.com/yugveerj">github.com/yugveerj</a> ·
+            <a href="mailto:yugkots@gmail.com">yugkots@gmail.com</a>
+          </p>
+        </footer>
+      </main>
+    </div>
 
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=fr7"></script>
   </body>
 </html>

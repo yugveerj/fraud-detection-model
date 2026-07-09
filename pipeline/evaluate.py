@@ -18,6 +18,7 @@ import warnings
 from pathlib import Path
 
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -362,6 +363,9 @@ def _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p
       and the holdout realization at that same threshold — the val→holdout gap is the
       out-of-time drift, shown honestly rather than hidden.
     - reliability.json: holdout reliability bins, uncalibrated vs isotonic.
+    - score_histogram.json: 64-bin histogram of the holdout calibrated scores — the demo
+      hero renders this as the mark-field the frozen threshold visibly cuts. Real counts,
+      not a sampling sketch.
     """
     CURVES_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -372,6 +376,7 @@ def _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p
     pts = nv.iloc[::step]
     net = {
         "basis": "validation",
+        "n": int(len(y_val)),
         "review_cost": review_cost,
         "series": [
             {"t": round(float(t), 5), "net": round(float(v))}
@@ -400,6 +405,21 @@ def _export_curves(y_val, p_val, amt_val, review_cost, op, hold_stats, y_hold, p
         ],
     }
     (CURVES_DIR / "reliability.json").write_text(json.dumps(rel, indent=2), encoding="utf-8")
+
+    counts, edges = np.histogram(np.asarray(p_hold, dtype=float), bins=64, range=(0.0, 1.0))
+    hist = {
+        "basis": "holdout",
+        "n": int(len(p_hold)),
+        "bins": [
+            {
+                "lo": round(float(edges[i]), 5),
+                "hi": round(float(edges[i + 1]), 5),
+                "count": int(c),
+            }
+            for i, c in enumerate(counts)
+        ],
+    }
+    (CURVES_DIR / "score_histogram.json").write_text(json.dumps(hist, indent=2), encoding="utf-8")
 
 
 def _persist_operating_point(op, hold, prov, review_cost):
