@@ -1,7 +1,6 @@
 {
-  "week": 4,
+  "week": 5,
   "breaches": [
-    "PSI>0.2 on: D1",
-    "value-capture down 11% vs out-of-time baseline"
+    "value-capture down 14% vs out-of-time baseline"
   ]
 }
