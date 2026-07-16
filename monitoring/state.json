@@ -1,7 +1,7 @@
 {
   "provenance": "real",
   "n_batches": 20,
-  "cursor": 10,
+  "cursor": 11,
   "baseline_value_capture": 0.4782431251450506,
   "history": [
     {
@@ -147,6 +147,19 @@
       "breaches": [
         "value-capture down 16% vs out-of-time baseline"
       ]
+    },
+    {
+      "index": 10,
+      "dt_min": 13540817,
+      "dt_max": 13781326,
+      "rows": 7382,
+      "fraud_rate": 0.03102,
+      "pr_auc": 0.5054,
+      "value_capture": 0.4748,
+      "vc_degradation": 0.0073,
+      "max_psi": 0.0904,
+      "evidently_drift": false,
+      "breaches": []
     }
   ],
   "frozen": false
