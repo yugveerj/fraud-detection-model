@@ -1,0 +1,46 @@
+<!doctype html><meta charset=utf-8><title>Monitoring — week 17</title>
+<style>
+body{font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}
+.banner{background:#fff3cd;border:1px solid #ffca2c;border-radius:6px;padding:.5rem .8rem;margin-bottom:1rem;font-size:.9rem}
+table{border-collapse:collapse;width:100%;margin:.5rem 0 1.5rem;font-size:.9rem}
+th,td{border-bottom:1px solid #ddd;padding:.4rem .5rem;text-align:left}
+th{color:#555}
+tr.breach{background:#fdecea}
+.alert{background:#fdecea;border:1px solid #e45756;color:#a11;border-radius:6px;padding:.5rem .8rem;margin:1rem 0;font-weight:600}
+.ok{color:#3a7d34;margin:1rem 0}
+.caveat,.meta{color:#666;font-size:.85rem;font-weight:normal}
+a{color:#4c78a8}
+</style>
+<div class=banner>Replayed simulation on a static public dataset — not live production monitoring.</div>
+<h1>Simulated week 17</h1>
+<p class=meta>provenance <b>real</b> · TransactionDT 15,085,939–15,292,005
+· 7,381 transactions · fraud rate 4.064%</p>
+<div class='ok'>No breaches this week.</div>
+<h2>Performance on labels <span class=caveat>(replay has labels immediately; production labels lag weeks)</span></h2>
+<table><tr><th>PR-AUC</th><th>value capture</th><th>vs baseline</th><th>max PSI</th><th>Evidently drift</th></tr>
+<tr><td>0.5754</td><td>49.7%</td>
+<td>+4.0%</td><td>0.1220</td>
+<td>no</td></tr></table>
+<h2>PSI — top 20 features (threshold 0.2)</h2>
+<table><tr><th>feature</th><th>kind</th><th>PSI</th></tr><tr class=''><td>D15</td><td>numeric</td><td>0.1220</td></tr>
+<tr class=''><td>D10</td><td>numeric</td><td>0.0648</td></tr>
+<tr class=''><td>dt_hour</td><td>numeric</td><td>0.0525</td></tr>
+<tr class=''><td>dt_hour_sin</td><td>numeric</td><td>0.0524</td></tr>
+<tr class=''><td>ProductCD</td><td>categorical</td><td>0.0521</td></tr>
+<tr class=''><td>D4</td><td>numeric</td><td>0.0438</td></tr>
+<tr class=''><td>dt_hour_cos</td><td>numeric</td><td>0.0412</td></tr>
+<tr class=''><td>P_emaildomain</td><td>categorical</td><td>0.0308</td></tr>
+<tr class=''><td>D1</td><td>numeric</td><td>0.0226</td></tr>
+<tr class=''><td>__score__</td><td>numeric</td><td>0.0214</td></tr>
+<tr class=''><td>card6</td><td>categorical</td><td>0.0204</td></tr>
+<tr class=''><td>card4</td><td>categorical</td><td>0.0161</td></tr>
+<tr class=''><td>C13</td><td>numeric</td><td>0.0143</td></tr>
+<tr class=''><td>C2</td><td>numeric</td><td>0.0116</td></tr>
+<tr class=''><td>TransactionAmt</td><td>numeric</td><td>0.0114</td></tr>
+<tr class=''><td>amt_log</td><td>numeric</td><td>0.0114</td></tr>
+<tr class=''><td>card2</td><td>numeric</td><td>0.0087</td></tr>
+<tr class=''><td>addr1</td><td>numeric</td><td>0.0076</td></tr>
+<tr class=''><td>C14</td><td>numeric</td><td>0.0065</td></tr>
+<tr class=''><td>card5</td><td>numeric</td><td>0.0064</td></tr></table>
+<p><a href=evidently.html>Full Evidently drift report →</a></p>
+<p class=meta><a href=../index.html>← monitoring index</a></p>
