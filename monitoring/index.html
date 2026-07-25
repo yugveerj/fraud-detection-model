@@ -13,7 +13,7 @@ a{color:#4c78a8}
 </style>
 <div class=banner>Replayed simulation on a static public dataset — not live production monitoring.</div>
 <h1>Fraud model — replayed drift monitoring</h1>
-<p class=meta>provenance <b>real</b> · cadence: one simulated week per scheduled run · Active replay.</p>
+<p class=meta>provenance <b>real</b> · cadence: one simulated week per scheduled run · FROZEN — replay stream exhausted; final report.</p>
 <p>Each run replays the next holdout slice, scores it with the deployed model, and reports
 Evidently + PSI drift and label performance. Breach rule: PSI &gt; 0.2, Evidently dataset
 drift, or value-capture down &gt;10% vs baseline → a GitHub Issue is opened.</p>
@@ -36,7 +36,8 @@ drift, or value-capture down &gt;10% vs baseline → a GitHub Issue is opened.</
 <tr class=''><td><a href='week-15/report.html'>week 15</a></td><td>7,381</td><td>3.658%</td><td>0.4810</td><td>46.4%</td><td>0.1743</td><td>ok</td></tr>
 <tr class=''><td><a href='week-16/report.html'>week 16</a></td><td>7,381</td><td>3.617%</td><td>0.5466</td><td>55.8%</td><td>0.1381</td><td>ok</td></tr>
 <tr class=''><td><a href='week-17/report.html'>week 17</a></td><td>7,381</td><td>4.064%</td><td>0.5754</td><td>49.7%</td><td>0.1220</td><td>ok</td></tr>
-<tr class='breach'><td><a href='week-18/report.html'>week 18</a></td><td>7,381</td><td>3.970%</td><td>0.4540</td><td>41.0%</td><td>0.1568</td><td>⚠ value-capture down 14% vs out-of-time baseline</td></tr></table>
+<tr class='breach'><td><a href='week-18/report.html'>week 18</a></td><td>7,381</td><td>3.970%</td><td>0.4540</td><td>41.0%</td><td>0.1568</td><td>⚠ value-capture down 14% vs out-of-time baseline</td></tr>
+<tr class=''><td><a href='week-19/report.html'>week 19</a></td><td>7,381</td><td>4.186%</td><td>0.4945</td><td>49.0%</td><td>0.1158</td><td>ok</td></tr></table>
 <h2>Methodology</h2>
 <ul class=meta>
 <li><b>PSI on dense inputs + the score distribution only.</b> Sparse block-NaN Vesta
